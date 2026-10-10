@@ -107,3 +107,28 @@ func TestTailerMissingFile(t *testing.T) {
 		t.Fatalf("after appearance: %+v err %v", got, err)
 	}
 }
+
+// A persisted offset resumes the tail mid-file: traffic logged while the
+// sampler was down is the users' and must still be accounted.
+func TestNewTailerAtResumes(t *testing.T) {
+	t.Parallel()
+	p := filepath.Join(t.TempDir(), "access.log")
+	first := accessLine("u1", 10, 20)
+	writeLog(t, p, first+accessLine("u2", 30, 40))
+
+	tr := NewTailerAt(p, int64(len(first)))
+	got, err := tr.Poll()
+	if err != nil || len(got) != 1 || got[0].UserID != "u2" || got[0].Up != 30 {
+		t.Fatalf("resumed: %+v err %v", got, err)
+	}
+	if tr.Offset() != int64(len(first)+len(accessLine("u2", 30, 40))) {
+		t.Errorf("Offset() = %d", tr.Offset())
+	}
+
+	// An offset past the file (rotated while nobody watched) restarts at zero.
+	stale := NewTailerAt(p, 1<<20)
+	got, err = stale.Poll()
+	if err != nil || len(got) != 2 {
+		t.Fatalf("stale offset: %+v err %v", got, err)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 )
@@ -31,14 +32,20 @@ func Render(cfg Config) (string, error) {
 	}
 	var b strings.Builder
 
-	// Global options.
-	b.WriteString(`{
+	// Global options. The admin endpoint is the unix socket the supervisor
+	// reloads through (see Supervisor.Apply); without one caddy's admin API is
+	// off entirely and a config change means a restart.
+	admin := "off"
+	if cfg.AdminSocket != "" {
+		admin = "unix/" + cfg.AdminSocket // caddy's unix address form: unix//abs/path
+	}
+	fmt.Fprintf(&b, `{
 	order forward_proxy first
 	servers {
 		protocols h1 h2
 	}
 	auto_https off
-	admin off
+	admin %s
 	log {
 		output stderr
 		format console
@@ -46,7 +53,7 @@ func Render(cfg Config) (string, error) {
 	}
 }
 
-`)
+`, admin)
 
 	// Site address: the bare port first, then the domain. ":<port>" must lead
 	// for the CONNECT to match however the client sets SNI/Host (the same
@@ -145,13 +152,24 @@ func normalizeUpstream(raw string) (string, error) {
 }
 
 // parseMirrorURL splits a masquerade-mirror URL into scheme and host[:port].
-// Only real http(s) URLs qualify; anything else is a configuration mistake,
+// The host is a real domain OR a loopback address: the node's decoy server
+// listens on 127.0.0.1, and mirroring it is how the lane shows the same cover
+// page the rest of the node shows. Anything else is a configuration mistake,
 // not a reason to silently fall back to no camouflage.
 func parseMirrorURL(raw string) (scheme, host string, err error) {
 	s := strings.TrimSpace(raw)
 	u, perr := url.Parse(s)
-	if perr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || !hostRe.MatchString(u.Hostname()) {
+	if perr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", "", fmt.Errorf("naive: mirror URL %q is not an http(s) URL with a real hostname", raw)
+	}
+	if h := u.Hostname(); !hostRe.MatchString(h) && !isLoopback(h) {
 		return "", "", fmt.Errorf("naive: mirror URL %q is not an http(s) URL with a real hostname", raw)
 	}
 	return u.Scheme, u.Host, nil
+}
+
+// isLoopback reports whether a hostname literal is a loopback address.
+func isLoopback(h string) bool {
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
 }

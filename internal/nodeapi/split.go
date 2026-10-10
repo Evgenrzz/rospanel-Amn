@@ -31,7 +31,10 @@ import (
 //
 // 2: WireGuard inbounds (a "wireguard" slot, and WGKey/WGAddr on the row), and the
 // addresses banned by hand in Blocked.Banned.
-const DeltaRev = 2
+//
+// 3: the NaiveProxy lane — Meta.Naive in the skeleton (without its users) and
+// NaivePass on the row.
+const DeltaRev = 3
 
 // SplitState is a node's whole desired state in parts. Skeleton, every row and Blocked
 // are sent as the panel encoded them, and the agent keeps them as received: they are
@@ -67,8 +70,8 @@ type Skeleton struct {
 	// Cert paths are the sentinels, as in NodeState.XrayConfig.
 	Config json.RawMessage `json:"config"`
 	Slots  []UserSlot      `json:"slots"`
-	// Meta has no SpeedLimits, no AWG peers and no blocked addresses: those come from
-	// the rows and from Blocked.
+	// Meta has no SpeedLimits, no AWG peers, no naive credentials and no blocked
+	// addresses: those come from the rows and from Blocked.
 	Meta NodeMeta `json:"meta"`
 }
 
@@ -101,6 +104,10 @@ type UserRow struct {
 	// apart from the AWG pair: a user may be allowed on one lane and not the other.
 	WGKey  string `json:"wg_key,omitempty"`
 	WGAddr string `json:"wg_addr,omitempty"`
+	// NaivePass is the user's NaiveProxy credential password. The username is the
+	// row's email tag ("u<id>") — the lane derives it, so only the secret rides
+	// along. Empty ⇒ the user is not let into the lane on this node.
+	NaivePass string `json:"naive_pass,omitempty"`
 }
 
 // Blocked is what a node drops at its own firewall: the source policy's refusals, which

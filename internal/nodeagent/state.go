@@ -258,6 +258,7 @@ func (a *Agent) statsLoop(ctx context.Context) {
 
 func (a *Agent) sampleStats() {
 	a.sampleAWG()
+	a.sampleNaive()
 	if !a.sup.Running() {
 		return
 	}

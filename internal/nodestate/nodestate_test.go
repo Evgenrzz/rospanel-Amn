@@ -164,3 +164,37 @@ func TestBannedAddresses(t *testing.T) {
 		t.Errorf("bans after lifting: %v", st.Meta.BannedIPs)
 	}
 }
+
+// The naive lane's credentials ride on the rows like the tunnel's peers: the
+// skeleton carries the lane but no user list, and the assembly folds one back
+// from the rows' passwords — in row order, skipping the rows that have none.
+// A skeleton without the lane assembles without it, whatever the rows hold.
+func TestAssembleFoldsNaiveUsers(t *testing.T) {
+	skel, _ := json.Marshal(nodeapi.Skeleton{
+		Config: json.RawMessage(`{"inbounds":[{"tag":"vless-in","protocol":"vless","settings":{"clients":[],"decryption":"none"}}]}`),
+		Slots:  []nodeapi.UserSlot{{Inbound: 0, Kind: "vless", Flow: "xtls-rprx-vision"}},
+		Meta:   nodeapi.NodeMeta{Naive: &nodeapi.NaiveState{Port: 2053}},
+	})
+	h := &Held{Tag: "t1", Skeleton: skel, Blocked: json.RawMessage(`{}`)}
+	h.Rows = append(h.Rows,
+		row(t, nodeapi.UserRow{ID: 2, UUID: "uuid", Slots: []int{0}, NaivePass: "p2"}),
+		row(t, nodeapi.UserRow{ID: 4, UUID: "uuid", Slots: []int{0}}), // no password: not on the lane
+		row(t, nodeapi.UserRow{ID: 6, UUID: "uuid", Slots: []int{0}, NaivePass: "p6"}),
+	)
+	h.Hash = nodeapi.ContentHash(h.Skeleton, h.Rows, h.Blocked)
+	p, err := Decode(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := Assemble(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Meta.Naive == nil || st.Meta.Naive.Port != 2053 {
+		t.Fatalf("the lane did not survive the assembly: %+v", st.Meta.Naive)
+	}
+	want := []nodeapi.NaiveUser{{Name: "u2", Pass: "p2"}, {Name: "u6", Pass: "p6"}}
+	if !slices.Equal(st.Meta.Naive.Users, want) {
+		t.Errorf("users = %+v, want %+v", st.Meta.Naive.Users, want)
+	}
+}

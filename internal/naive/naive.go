@@ -29,6 +29,7 @@ import (
 	"math/big"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // User is one basic-auth credential pair served by the tunnel. Name is the
@@ -91,6 +92,14 @@ type Config struct {
 	// Upstream cascades the tunnel through another HTTPS proxy
 	// (https://user:pass@host:port). Empty exits directly.
 	Upstream string
+	// AdminSocket is the absolute path of the unix socket caddy's admin API
+	// listens on, so the supervisor can reload a changed Caddyfile without
+	// dropping live tunnels (`caddy reload` talks to it). Empty renders
+	// `admin off` — a config change then needs a process restart. The socket
+	// lives in the lane's own 0700 directory, and its filesystem permissions
+	// are the access control: nothing on the box but the agent's user can
+	// reach it.
+	AdminSocket string
 }
 
 // Masquerade is the cover site served to anyone who is not an authenticated
@@ -193,6 +202,9 @@ func (c Config) Validate() error {
 	}
 	if c.ProbeSecret != "" && !probeSecretRe.MatchString(c.ProbeSecret) {
 		return fmt.Errorf("naive: probe secret %q outside the allowed character set", c.ProbeSecret)
+	}
+	if c.AdminSocket != "" && (!strings.HasPrefix(c.AdminSocket, "/") || !pathTokenRe.MatchString(c.AdminSocket)) {
+		return fmt.Errorf("naive: admin socket %q is not an absolute single-token path", c.AdminSocket)
 	}
 	if c.Upstream != "" {
 		if _, err := normalizeUpstream(c.Upstream); err != nil {

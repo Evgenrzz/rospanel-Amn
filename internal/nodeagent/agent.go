@@ -33,6 +33,7 @@ import (
 	"github.com/AppsGanin/rospanel/internal/ipblock"
 	"github.com/AppsGanin/rospanel/internal/logbuf"
 	"github.com/AppsGanin/rospanel/internal/model"
+	"github.com/AppsGanin/rospanel/internal/naive"
 	"github.com/AppsGanin/rospanel/internal/nodeapi"
 	"github.com/AppsGanin/rospanel/internal/nodestate"
 	"github.com/AppsGanin/rospanel/internal/opera"
@@ -264,6 +265,16 @@ type Agent struct {
 	awgEmails map[string]string
 	awgLast   map[string]awg.PeerStat
 
+	// naive is the node's NaiveProxy lane (see naive.go): the supervisor of the
+	// caddy-naive child, the tail of its access log (the lane's only traffic
+	// counter), and the last apply outcome for the sync report. naiveTail is
+	// touched by the stats loop alone, so it needs no lock.
+	naiveDir  string
+	naiveSup  *naive.Supervisor
+	naiveTail *naive.Tailer
+	naiveErr  string
+	naiveMu   sync.Mutex
+
 	// turn runs the TURN relays in front of this node's WireGuard inbounds.
 	turn *turnrelay.Relay
 }
@@ -489,6 +500,8 @@ func newAgent(dataDir string, ident *Identity) (*Agent, error) {
 	sup := xray.NewSupervisor(bin, filepath.Join(dataDir, "xray", "config.json"), filepath.Join(dataDir, "geo"))
 	client := &http.Client{Timeout: syncTimeout, Transport: syncTransport(ident.Insecure)}
 	operaDir := filepath.Join(dataDir, "opera")
+	naiveDir := filepath.Join(dataDir, "naive")
+	naiveSup := naive.NewSupervisor(naiveDir)
 	var front *tlsfront.Front
 	if os.Getenv("ROSPANEL_TLS_FRONT") != "off" {
 		front = tlsfront.New(xray.VLESSInnerAddr)
@@ -517,6 +530,9 @@ func newAgent(dataDir string, ident *Identity) (*Agent, error) {
 		seen:         newSeenAddrs(),
 		shaper:       shaper.New(),
 		awg:          awg.New(),
+		naiveDir:     naiveDir,
+		naiveSup:     naiveSup,
+		naiveTail:    newNaiveTailer(naiveDir, naiveSup.LogPath()),
 		turn:         turnrelay.New(),
 		policyBlock:  ipblock.New(ipblock.TablePolicy),
 		ipBan:        ipblock.NewPermanent(ipblock.TableBanned),
@@ -1115,6 +1131,7 @@ func (a *Agent) buildSyncRequest() nodeapi.SyncRequest {
 	}
 
 	awgUp, awgErr := a.awgState()
+	naiveUp, naiveErrMsg := a.naiveState()
 	conns, connsMore := a.takeConns(connsChunkMax)
 	req := nodeapi.SyncRequest{
 		ConfigHash:  hash,
@@ -1135,6 +1152,8 @@ func (a *Agent) buildSyncRequest() nodeapi.SyncRequest {
 		CertError:      a.certError(),
 		AWGRunning:     awgUp,
 		AWGError:       awgErr,
+		NaiveRunning:   naiveUp,
+		NaiveError:     naiveErrMsg,
 		ReportID:       rid,
 		Traffic:        traffic,
 		TrafficMore:    trafficMore,
@@ -1286,6 +1305,7 @@ func (a *Agent) applyState(st *nodeapi.NodeState) error {
 func (a *Agent) applyUsers(st *nodeapi.NodeState) error {
 	m := st.Meta
 	a.syncAWG(m.AWG)
+	a.syncNaive(m.Naive, m.Host)
 	// The addresses the panel's source policy refused. Sync, not add: a lifted block
 	// has to come out of the kernel here too.
 	if m.BlockTTLHours > 0 {
@@ -1519,6 +1539,9 @@ func (a *Agent) shutdown() {
 	a.sup.Stop()
 	if a.awg != nil {
 		a.awg.Close()
+	}
+	if a.naiveSup != nil {
+		a.naiveSup.Stop()
 	}
 	a.turn.Close()
 	a.operaSup.Stop()

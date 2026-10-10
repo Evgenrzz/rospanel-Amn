@@ -46,6 +46,22 @@ func NewTailer(path string) *Tailer {
 	return t
 }
 
+// NewTailerAt returns a reader resuming from a persisted Offset, so traffic
+// logged while the sampler was down is still accounted. An offset past the
+// current file size is left as-is: Poll reads it as a rotation and restarts
+// at zero, which is what happened to the file while nobody was watching.
+func NewTailerAt(path string, offset int64) *Tailer {
+	if offset < 0 {
+		offset = 0
+	}
+	return &Tailer{path: path, offset: offset}
+}
+
+// Offset is how far into the file the tailer has consumed, including any
+// partial line held in memory. Persist it after a successful Poll to resume
+// with NewTailerAt.
+func (t *Tailer) Offset() int64 { return t.offset }
+
 // Poll consumes what the writer appended since the last call and returns the
 // accounted entries in it. A missing file is not an error — the lane may
 // simply not have served a request yet; the tailer restarts at zero and picks

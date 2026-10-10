@@ -262,3 +262,52 @@ func TestUserName(t *testing.T) {
 		t.Error("a large id produced a username outside the character set")
 	}
 }
+
+// The admin socket is how the supervisor reloads without dropping tunnels; it
+// must land in the global block in caddy's unix address form, and a path that
+// is not absolute single-token must be refused before it can split the file.
+func TestRenderAdminSocket(t *testing.T) {
+	t.Parallel()
+	cfg := baseConfig()
+	cfg.AdminSocket = "/var/lib/rospanel-node/naive/admin.sock"
+	out, err := Render(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "admin unix//var/lib/rospanel-node/naive/admin.sock") {
+		t.Errorf("admin socket not rendered:\n%s", out)
+	}
+	if strings.Contains(out, "admin off") {
+		t.Errorf("admin off rendered next to a socket:\n%s", out)
+	}
+
+	cfg.AdminSocket = "relative/admin.sock"
+	if _, err := Render(cfg); err == nil {
+		t.Error("a relative admin socket path rendered without an error")
+	}
+}
+
+// The node's decoy listens on loopback, and mirroring it is the lane's
+// masquerade: a loopback IP must be accepted as a mirror host even though it
+// is not a domain.
+func TestRenderLoopbackMirror(t *testing.T) {
+	t.Parallel()
+	cfg := baseConfig()
+	cfg.Masq = Masquerade{Kind: MasqMirror, URL: "http://127.0.0.1:8080"}
+	out, err := Render(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "reverse_proxy http://127.0.0.1:8080") {
+		t.Errorf("loopback mirror not rendered:\n%s", out)
+	}
+	// An http mirror needs no TLS transport block.
+	if strings.Contains(out, "tls_server_name") {
+		t.Errorf("an http mirror rendered a TLS transport:\n%s", out)
+	}
+
+	cfg.Masq = Masquerade{Kind: MasqMirror, URL: "http://203.0.113.5:8080"}
+	if _, err := Render(cfg); err == nil {
+		t.Error("a non-loopback IP mirror rendered without an error")
+	}
+}

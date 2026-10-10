@@ -124,6 +124,17 @@ type SyncRequest struct {
 	AWGRunning bool   `json:"awg_running,omitempty"`
 	AWGError   string `json:"awg_error,omitempty"`
 
+	// NaiveRunning is whether this node's NaiveProxy server (caddy-naive) is
+	// actually up, and NaiveError the last reason it is not — the same contract
+	// as the AWG pair above, for the same reason: the agent runs the server and
+	// a failure it only logged to its own disk would leave the panel handing
+	// out naive links for a lane that is down.
+	//
+	// Absent from an older agent, which reports neither — "no report at all"
+	// reads as "nothing known", not as "down".
+	NaiveRunning bool   `json:"naive_running,omitempty"`
+	NaiveError   string `json:"naive_error,omitempty"`
+
 	// Traffic deltas accumulated since the last acked report. ReportID is monotonic
 	// per node and persisted by the agent, so a lost response is retried without
 	// double-counting (the panel dedupes against its stored watermark).
@@ -468,6 +479,10 @@ type NodeMeta struct {
 	// obfuscation parameters and every peer allowed on it. nil ⇒ the lane is off
 	// on this node and any running tunnel comes down. See internal/awg.
 	AWG *AWGState `json:"awg,omitempty"`
+
+	// Naive is the node's NaiveProxy lane as the panel wants it. nil ⇒ the lane
+	// is off on this node and any running server comes down. See internal/naive.
+	Naive *NaiveState `json:"naive,omitempty"`
 }
 
 // AWGState is one server's tunnel: what the node feeds to awg.Device.Apply.
@@ -484,4 +499,37 @@ type AWGPeer struct {
 	PublicKey string `json:"pk"`
 	Addr      string `json:"ip"`
 	Email     string `json:"e"`
+}
+
+// NaiveState is one server's NaiveProxy lane: everything the node needs to
+// render its Caddyfile and supervise the server. The users' credentials ride
+// along in full-state syncs; in a split state the skeleton carries this
+// WITHOUT Users and each row carries the user's password (UserRow.NaivePass),
+// exactly as the AWG peers do.
+type NaiveState struct {
+	// Port is the public TCP port the tunnel listens on.
+	Port int `json:"port"`
+	// CertPath and KeyPath are the TLS material for the lane. The panel sends
+	// the cert sentinels (CertPathSentinel/KeyPathSentinel) as it does inside
+	// the Xray config: the node substitutes its own absolute paths, and the
+	// hashed state stays stable across nodes.
+	CertPath string `json:"cert_path"`
+	KeyPath  string `json:"key_path"`
+	// ProbeSecret enables caddy's probe_resistance with this hidden domain.
+	// Empty ⇒ the directive is not rendered.
+	ProbeSecret string `json:"probe_secret,omitempty"`
+	// MasqueradeURL is the cover site mirrored to unauthenticated visitors —
+	// the node's own decoy server (http://127.0.0.1:<port>) by default. Empty
+	// ⇒ no masquerade handler.
+	MasqueradeURL string `json:"masquerade_url,omitempty"`
+	// Users are the credentials the tunnel accepts. Name is the user's tag
+	// ("u<id>", the same form as the Xray email), so counters and sightings
+	// fold into the existing report fields.
+	Users []NaiveUser `json:"users,omitempty"`
+}
+
+// NaiveUser is one basic-auth credential pair on the lane.
+type NaiveUser struct {
+	Name string `json:"n"`
+	Pass string `json:"p"`
 }

@@ -135,7 +135,8 @@ func Apply(p *Parts, d *nodeapi.StateDelta) (*Parts, error) {
 
 // Assemble puts a split state together into the state the rest of the agent applies:
 // the Xray config with its users written back, and the meta with the speed caps, the
-// tunnel's peers and the blocked addresses from the rows and the blocks.
+// tunnel's peers, the naive lane's credentials and the blocked addresses from the rows
+// and the blocks.
 func Assemble(p *Parts) (*nodeapi.NodeState, error) {
 	cfg, err := xray.RenderUsers(p.Skeleton.Config, p.Skeleton.Slots, p.Rows)
 	if err != nil {
@@ -148,6 +149,12 @@ func Assemble(p *Parts) (*nodeapi.NodeState, error) {
 		t.Peers = nil
 		tunnel = &t
 	}
+	var naiveLane *nodeapi.NaiveState
+	if meta.Naive != nil {
+		n := *meta.Naive
+		n.Users = nil
+		naiveLane = &n
+	}
 	for _, r := range p.Rows {
 		email := model.UserEmail(r.ID)
 		if r.Speed > 0 {
@@ -159,8 +166,12 @@ func Assemble(p *Parts) (*nodeapi.NodeState, error) {
 		if tunnel != nil && r.AWGKey != "" {
 			tunnel.Peers = append(tunnel.Peers, nodeapi.AWGPeer{PublicKey: r.AWGKey, Addr: r.AWGAddr, Email: email})
 		}
+		if naiveLane != nil && r.NaivePass != "" {
+			naiveLane.Users = append(naiveLane.Users, nodeapi.NaiveUser{Name: email, Pass: r.NaivePass})
+		}
 	}
 	meta.AWG = tunnel
+	meta.Naive = naiveLane
 	meta.BlockedIPs, meta.BlockTTLHours = p.Blocked.IPs, p.Blocked.TTLHours
 	meta.BannedIPs = p.Blocked.Banned
 	return &nodeapi.NodeState{Hash: p.Held.Hash, XrayConfig: cfg, Meta: meta}, nil
