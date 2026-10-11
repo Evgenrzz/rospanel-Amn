@@ -9,8 +9,9 @@ import (
 // Xray's API or the WireGuard device counters, a naive server has nothing to
 // poll — every handled request is one JSON line, and the authenticated
 // CONNECT lines carry the username caddy checked the basic-auth against
-// (request.user_id) plus the byte counters (bytes_read = what the client
-// sent, size = what it received).
+// (user_id at the TOP level of the entry, as a live lane log writes it)
+// plus the byte counters (bytes_read = what the client sent, size = what
+// it received).
 //
 // Lines without a user_id are the masquerade doing its job (probes, scanners,
 // browsers that found the port) and are counted against nobody.
@@ -39,7 +40,12 @@ type logLine struct {
 	// CONNECT tunnel these are the two directions of the proxied stream.
 	BytesRead int64 `json:"bytes_read"`
 	Size      int64 `json:"size"`
-	Request   struct {
+	// UserID is the authenticated basic-auth username. Caddy writes it at the
+	// top level of the entry, next to the byte counters — not inside request,
+	// which carries only addresses and headers. The nested field below is a
+	// fallback for hand-written or foreign-shaped lines.
+	UserID  string `json:"user_id"`
+	Request struct {
 		UserID   string `json:"user_id"`
 		ClientIP string `json:"client_ip"`
 		RemoteIP string `json:"remote_ip"`
@@ -59,7 +65,11 @@ func ParseLine(line []byte) (Entry, bool) {
 	if err := json.Unmarshal(line, &l); err != nil {
 		return Entry{}, false
 	}
-	if l.Request.UserID == "" {
+	uid := l.UserID
+	if uid == "" {
+		uid = l.Request.UserID
+	}
+	if uid == "" {
 		return Entry{}, false
 	}
 	ip := l.Request.ClientIP
@@ -67,7 +77,7 @@ func ParseLine(line []byte) (Entry, bool) {
 		ip = l.Request.RemoteIP
 	}
 	return Entry{
-		UserID:   l.Request.UserID,
+		UserID:   uid,
 		Up:       l.BytesRead,
 		Down:     l.Size,
 		ClientIP: ip,

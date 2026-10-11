@@ -67,8 +67,8 @@ func Render(cfg Config) (string, error) {
 	fmt.Fprintf(&b, "%s {\n\ttls %s %s\n", site, cfg.CertFile, cfg.KeyFile)
 
 	// Site-level access log: one JSON line per handled request, carrying
-	// request.user_id and the byte counters the panel's traffic accounting
-	// reads. Rotation by age (30 days) rather than count, so a busy lane and
+	// user_id and the byte counters the panel's traffic accounting reads.
+	// Rotation by age (30 days) rather than count, so a busy lane and
 	// an idle one keep the same window.
 	if cfg.LogFile != "" {
 		fmt.Fprintf(&b, `

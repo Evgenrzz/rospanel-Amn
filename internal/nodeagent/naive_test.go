@@ -34,10 +34,11 @@ func naiveAgent(t *testing.T) (*Agent, string) {
 	return a, logPath
 }
 
-// accessLine is one caddy access-log line in the shape the lane parses.
+// accessLine is one caddy access-log line in the shape the lane writes:
+// user_id at the top level, next to the byte counters.
 func accessLine(ts int64, user, ip string, up, down int64) string {
-	return fmt.Sprintf(`{"ts":%d,"bytes_read":%d,"size":%d,"request":{"user_id":%q,"client_ip":%q}}`+"\n",
-		ts, up, down, user, ip)
+	return fmt.Sprintf(`{"ts":%d,"request":{"client_ip":%q},"user_id":%q,"bytes_read":%d,"size":%d}`+"\n",
+		ts, ip, user, up, down)
 }
 
 func appendLog(t *testing.T, path, s string) {

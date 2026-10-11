@@ -8,8 +8,8 @@ import (
 )
 
 func accessLine(user string, up, down int) string {
-	return `{"ts":1760000000,"request":{"client_ip":"1.2.3.4","user_id":"` + user +
-		`"},"bytes_read":` + strconv.Itoa(up) + `,"size":` + strconv.Itoa(down) + "}\n"
+	return `{"ts":1760000000,"request":{"client_ip":"1.2.3.4"},` +
+		`"user_id":"` + user + `","bytes_read":` + strconv.Itoa(up) + `,"size":` + strconv.Itoa(down) + "}\n"
 }
 
 func writeLog(t *testing.T, path, body string) {

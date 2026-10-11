@@ -7,7 +7,7 @@ func TestParseLine(t *testing.T) {
 	line := []byte(`{"level":"info","ts":1760000000.123,"logger":"http.log.access.log0",` +
 		`"msg":"handled request","request":{"remote_ip":"1.2.3.4","remote_port":"52000",` +
 		`"client_ip":"1.2.3.4","proto":"HTTP/2.0","method":"CONNECT","host":"vpn.example.com:2053",` +
-		`"uri":"example.org:443","user_id":"u7"},"bytes_read":1000,"status":200,"duration":30.5,"size":20000}`)
+		`"uri":"example.org:443"},"bytes_read":1000,"user_id":"u7","status":200,"duration":30.5,"size":20000}`)
 	e, ok := ParseLine(line)
 	if !ok {
 		t.Fatal("a full access-log line did not parse")
