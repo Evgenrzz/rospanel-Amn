@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+
+### Features
+
+* **naive:** NaiveProxy as a fifth, node-only lane — per-user `u<id>` credentials, a
+  supervised `caddy-naive` child on the node handed the panel's own TLS cert, subscription
+  delivery via a `naive+https://` link, a page card (QR + client-config download) and the
+  `/naive/<id>.conf` endpoint, and a Connections-tab block with global probe-resistance and
+  masquerade defaults on the master. Traffic is accounted from caddy's access log into the
+  same report fields Xray fills; the lane is skipped by the Clash and sing-box profiles.
+
 ## [5.0.1](https://github.com/AppsGanin/rospanel/compare/v5.0.0...v5.0.1) (2026-10-09)
 
 
