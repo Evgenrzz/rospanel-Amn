@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [5.0.1-Amanesia](https://github.com/Evgenrzz/rospanel-Amn/compare/v5.0.1...v5.0.1-Amanesia) (2026-10-12)
 
 
 ### Features
