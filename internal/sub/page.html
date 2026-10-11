@@ -1093,6 +1093,31 @@
         </div>
         {{end}}
 
+        {{if .Naive}}
+        <div class="card">
+          <details class="fold">
+            <summary><span>{{.L.NaiveTitle}} <span class="fold-count">· {{len .Naive}}</span></span></summary>
+            <div class="app-row" style="margin: 0 0 10px">
+              <p class="muted" style="margin: 0">{{.L.NaiveHint}}</p>
+            </div>
+          {{range .Naive}}
+          <details>
+            <summary>{{.Label}}</summary>
+            <div class="qr"><img src="{{.QRURL}}" alt="QR" loading="lazy" /></div>
+            <div class="copy-row">
+              <code>{{.Link}}</code>
+              <button class="icon-btn" type="button" title="{{$.L.Copy}}" aria-label="{{$.L.Copy}}" onclick="copyIcon('{{.Link}}', this)">
+                <svg class="ic-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></svg>
+                <svg class="ic-done" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+              </button>
+            </div>
+            <a class="btn alt" href="{{.ConfURL}}" download>{{$.L.NaiveDownload}} · {{.Label}}</a>
+          </details>
+          {{end}}
+          </details>
+        </div>
+        {{end}}
+
         {{if .Turn}}
         <div class="card">
           <details class="fold">

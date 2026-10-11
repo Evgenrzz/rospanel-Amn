@@ -21,6 +21,7 @@ import (
 	"github.com/AppsGanin/rospanel/internal/branding"
 	"github.com/AppsGanin/rospanel/internal/core"
 	"github.com/AppsGanin/rospanel/internal/i18n"
+	"github.com/AppsGanin/rospanel/internal/link"
 	"github.com/AppsGanin/rospanel/internal/model"
 	"github.com/AppsGanin/rospanel/internal/plugin"
 	"github.com/AppsGanin/rospanel/internal/sub"
@@ -288,6 +289,10 @@ func handleSub(rt *Router, w http.ResponseWriter, r *http.Request, rest string) 
 		}
 		if rest, ok := strings.CutPrefix(leaf, "wg/"); ok {
 			rt.serveTurnWG(w, r, u, set, rest)
+			return
+		}
+		if rest, ok := strings.CutPrefix(leaf, "naive/"); ok {
+			rt.serveNaive(w, r, u, set, rest)
 			return
 		}
 		if idx, ok := strings.CutPrefix(leaf, "app/"); ok {
@@ -1214,6 +1219,55 @@ func (rt *Router) serveAWG(w http.ResponseWriter, r *http.Request, u *model.User
 		return
 	}
 	rt.serveTunnelConf(w, r, conf, ext, sub.AWGFileName(srv.Set))
+}
+
+// serveNaive hands out one user's NaiveProxy material for one node — "<id>.conf" as the
+// client config the naiveproxy apps import, "<id>.png" as a QR of the naive+https://
+// import link — where id is the node. NaiveProxy is node-only, so id 0 (the master) is
+// never valid. The node must have the lane on and the user must be allowed on it; anything
+// else is the decoy, so the URL space confirms nothing about the fleet.
+func (rt *Router) serveNaive(w http.ResponseWriter, r *http.Request, u *model.User, set *model.Settings, rest string) {
+	name, ext, ok := strings.Cut(rest, ".")
+	if !ok || (ext != "conf" && ext != "png") {
+		rt.currentDecoy().ServeHTTP(w, r)
+		return
+	}
+	serverID, err := strconv.ParseInt(name, 10, 64)
+	if err != nil || serverID <= 0 { // node-only: 0 is the master, which runs no naive lane
+		rt.currentDecoy().ServeHTTP(w, r)
+		return
+	}
+	servers, err := rt.subServers(set, u.ID, clientIP(r))
+	if err != nil {
+		rt.subUnavailable(w, u.ID, err)
+		return
+	}
+	var srv *sub.Server
+	for i := range servers {
+		if servers[i].Set.ServerID == serverID {
+			srv = &servers[i]
+			break
+		}
+	}
+	if srv == nil || !srv.Set.NaiveEnabled || srv.Set.NaivePort == 0 ||
+		!srv.Access.AllowsBuiltin(serverID, model.LaneNaive) {
+		rt.currentDecoy().ServeHTTP(w, r)
+		return
+	}
+	// NaiveClientConfig claims a password for a user who lacks one and records it on u,
+	// so the QR below — built from the same u — carries the credential just minted.
+	conf, err := rt.mgr.NaiveClientConfig(u, srv.Set)
+	if err != nil {
+		rt.currentDecoy().ServeHTTP(w, r)
+		return
+	}
+	if ext == "png" {
+		// The QR encodes the import link a phone scans into NekoBox/Shadowrocket, not the
+		// config JSON; serveTunnelConf renders whatever text it is given as the QR.
+		rt.serveTunnelConf(w, r, link.Naive(*u, srv.Set), ext, "")
+		return
+	}
+	rt.serveTunnelConf(w, r, conf, ext, sub.NaiveFileName(srv.Set))
 }
 
 // buildWallet fills the page's wallet block: balance, top-up, renewal switch, the

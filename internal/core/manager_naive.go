@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/AppsGanin/rospanel/internal/model"
@@ -198,4 +199,24 @@ func (m *Manager) RegenAllNaivePass() (int, error) {
 	m.dropNodeInputs()
 	m.notifyNodes()
 	return len(passes), nil
+}
+
+// NaiveClientConfig renders one user's NaiveProxy client config for one node — the
+// {"proxy":"https://u<id>:pass@host:port"} file the naiveproxy client and its forks
+// import. s is that node's materialised settings (from nodeSettings). It claims a password
+// for a user who lacks one, so a freshly-enabled lane serves a working config on the very
+// first download rather than an empty one — the same on-demand claim AWGClientConfig makes
+// for a tunnel key. Fails when the lane is off, the server is the master (naive is
+// node-only and never runs there), or no password could be minted.
+func (m *Manager) NaiveClientConfig(u *model.User, s *model.Settings) (string, error) {
+	if s.ServerID == model.LocalNodeID || !s.NaiveEnabled || s.NaivePort == 0 {
+		return "", fmt.Errorf("naive: lane is off on server %d", s.ServerID)
+	}
+	if err := m.claimNaive([]*model.User{u}); err != nil {
+		return "", err
+	}
+	if u.NaivePass == "" {
+		return "", fmt.Errorf("naive: no password for user %d", u.ID)
+	}
+	return naive.ClientConfig(naive.UserName(u.ID), u.NaivePass, s.Host, s.NaivePort), nil
 }

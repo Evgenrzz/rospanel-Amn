@@ -2,8 +2,9 @@ package sub
 
 import (
 	"fmt"
-	"github.com/AppsGanin/rospanel/internal/extsub"
 	"strings"
+
+	"github.com/AppsGanin/rospanel/internal/extsub"
 
 	"github.com/AppsGanin/rospanel/internal/branding"
 	"github.com/AppsGanin/rospanel/internal/link"
@@ -70,6 +71,10 @@ func clashProxies(u model.User, srv Server) []clashProxy {
 			"  - {name: %q, type: hysteria2, server: %q, port: %d, password: %q, sni: %q, alpn: [h3], skip-cert-verify: %s%s%s}",
 			n, set.Host, set.HysteriaPort, u.Password, set.SNI, sv, hop, clashObfs(set.HysteriaObfs))})
 	}
+	// NaiveProxy is deliberately absent from the Clash profile: the lane is node-only
+	// and mihomo has no naive outbound this panel emits. Users still get it through the
+	// universal link list (the naive+https:// entry) and the client-config download on
+	// the page — see sub.ShareLinks and the naiveCard section.
 	for _, in := range srv.Custom {
 		if !srv.allowsInbound(in.ID) {
 			continue

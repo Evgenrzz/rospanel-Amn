@@ -141,6 +141,9 @@ type pageText struct {
 	AWGHint        string
 	AWGDownload    string
 	AWGSite        string // where the Amnezia apps are downloaded, in the page's language
+	NaiveTitle     string
+	NaiveHint      string
+	NaiveDownload  string
 	TurnTitle      string
 	TurnHint       string
 	TurnPeer       string
@@ -241,6 +244,9 @@ func text(lang i18n.Lang) pageText {
 		AWGHint:        t("sub.awgHint"),
 		AWGDownload:    t("sub.awgDownload"),
 		AWGSite:        amneziaSite(lang),
+		NaiveTitle:     t("sub.naiveTitle"),
+		NaiveHint:      t("sub.naiveHint"),
+		NaiveDownload:  t("sub.naiveDownload"),
 		TurnTitle:      t("sub.turnTitle"),
 		TurnHint:       t("sub.turnHint"),
 		TurnPeer:       t("sub.turnPeer"),
@@ -327,6 +333,16 @@ type awgCard struct {
 	QRURL   string
 }
 
+// naiveCard is one node's NaiveProxy lane on the page. Unlike AmneziaWG it has a
+// share-link form, so the card carries the import link to copy as well as the QR of
+// that link and the client-config download.
+type naiveCard struct {
+	Label   string
+	Link    string // naive+https:// import link (copyable, and what the QR encodes)
+	ConfURL string // client-config JSON download
+	QRURL   string // QR of Link
+}
+
 type pageData struct {
 	L         pageText
 	Name      string
@@ -351,6 +367,9 @@ type pageData struct {
 	// AWG lists one card per server whose AmneziaWG lane the user may use: the
 	// config file to import and its QR.
 	AWG []awgCard
+	// Naive lists one card per node whose NaiveProxy lane the user may use: the
+	// import link, its QR and the client-config download.
+	Naive []naiveCard
 	// Turn lists one card per WireGuard inbound behind a TURN relay the user may use.
 	Turn []turnCard
 
@@ -612,6 +631,7 @@ func buildPageData(u model.User, local *model.Settings, servers []Server, billin
 	// user can tell the entries apart.
 	var protoLinks, extLinks []protoLink
 	var awgCards []awgCard
+	var naiveCards []naiveCard
 	var turnCards []turnCard
 	for _, srv := range servers {
 		s := srv.Set
@@ -622,6 +642,18 @@ func buildPageData(u model.User, local *model.Settings, servers []Server, billin
 				// itself is downloaded from the panel — the node hosts no /sub path.
 				ConfURL: AWGConfURL(local, u.SubToken, s.ServerID),
 				QRURL:   fmt.Sprintf("%s/awg/%d.png", subURL, s.ServerID),
+			})
+		}
+		// NaiveProxy is node-only, so the master (ServerID 0) never yields a card; the
+		// user's password must already be minted and the lane granted for this node —
+		// the same gate ShareLinks applies, so the card and the base64 list agree.
+		if s.ServerID != model.LocalNodeID && s.NaiveEnabled && s.NaivePort != 0 &&
+			u.NaivePass != "" && srv.allowsBuiltin(model.LaneNaive) {
+			naiveCards = append(naiveCards, naiveCard{
+				Label:   s.ProtoLabelFor(model.ProtoNaive, &u),
+				Link:    link.Naive(u, s),
+				ConfURL: NaiveConfURL(local, u.SubToken, s.ServerID),
+				QRURL:   fmt.Sprintf("%s/naive/%d.png", subURL, s.ServerID),
 			})
 		}
 		if s.VLESSEnabled && srv.allowsBuiltin(model.LaneVLESS) {
@@ -712,6 +744,7 @@ func buildPageData(u model.User, local *model.Settings, servers []Server, billin
 		SubURL:      subURL,
 		Links:       protoLinks,
 		AWG:         awgCards,
+		Naive:       naiveCards,
 		Turn:        turnCards,
 		DeepLinks:   DeepLinks(subURL, lang, local.SubHappCrypt),
 		Wizard:      Wizard(lang),

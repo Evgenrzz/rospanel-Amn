@@ -39,12 +39,13 @@ type View struct {
 	Maintenance bool `json:"maintenance"`
 	// RefCode is the user's invite code while the referral programme runs, for a bot
 	// that builds its own ?start=r_<code> link.
-	RefCode string     `json:"ref_code,omitempty"`
-	AWG     []ViewAWG  `json:"awg"`
-	Turn    []ViewTurn `json:"turn"`
-	Brand   ViewBrand  `json:"brand"`
-	Devices Devices    `json:"devices"`
-	Billing *Billing   `json:"billing,omitempty"` // absent while billing shows nothing
+	RefCode string      `json:"ref_code,omitempty"`
+	AWG     []ViewAWG   `json:"awg"`
+	Naive   []ViewNaive `json:"naive"`
+	Turn    []ViewTurn  `json:"turn"`
+	Brand   ViewBrand   `json:"brand"`
+	Devices Devices     `json:"devices"`
+	Billing *Billing    `json:"billing,omitempty"` // absent while billing shows nothing
 	// TGLink is the user bot's link that binds this account to the Telegram it is
 	// opened in — or, when TGLinked, moves it there. Absent while the bot or the
 	// switches in Settings → Telegram leave nothing to offer. Its code lasts 15
@@ -98,6 +99,15 @@ type ViewAWG struct {
 	QRURL   string `json:"qr_url"`
 }
 
+// ViewNaive is one node's NaiveProxy lane: the import link, its QR and the
+// client-config download.
+type ViewNaive struct {
+	Name    string `json:"name"`
+	Link    string `json:"link"`
+	ConfURL string `json:"conf_url"`
+	QRURL   string `json:"qr_url"`
+}
+
 // ViewTurn is one WireGuard-over-TURN lane and the apps that import it.
 type ViewTurn struct {
 	Name    string    `json:"name"`
@@ -131,7 +141,7 @@ func PageView(u model.User, local *model.Settings, servers []Server, billing Bil
 		ExpireAt: u.ExpireAt, HoldSeconds: u.HoldSeconds,
 		Texts:  ViewTexts{Used: d.Used, Limit: d.Limit, Expire: d.Expire, Reset: d.ResetText, LastSeen: d.LastSeen},
 		SubURL: d.SubURL, ShowConfigs: d.ShowConfigs, Maintenance: local.MaintenanceMode,
-		Apps: []ViewApp{}, Links: []ViewLink{}, AWG: []ViewAWG{}, Turn: []ViewTurn{}, Blocks: []ViewBlock{},
+		Apps: []ViewApp{}, Links: []ViewLink{}, AWG: []ViewAWG{}, Naive: []ViewNaive{}, Turn: []ViewTurn{}, Blocks: []ViewBlock{},
 		Brand:   ViewBrand{Name: d.BrandName, Accent: d.Brand, Text: d.Ink, Muted: d.Muted, Bg: d.Bg, Surface: d.Surface},
 		Devices: devices,
 	}
@@ -151,6 +161,9 @@ func PageView(u model.User, local *model.Settings, servers []Server, billing Bil
 	}
 	for _, a := range d.AWG {
 		v.AWG = append(v.AWG, ViewAWG{Name: a.Label, ConfURL: a.ConfURL, QRURL: a.QRURL})
+	}
+	for _, n := range d.Naive {
+		v.Naive = append(v.Naive, ViewNaive{Name: n.Label, Link: n.Link, ConfURL: n.ConfURL, QRURL: n.QRURL})
 	}
 	for _, t := range d.Turn {
 		vt := ViewTurn{Name: t.Label, Peer: t.Peer, Link: t.Link, ConfURL: t.ConfURL, Apps: []ViewApp{}}

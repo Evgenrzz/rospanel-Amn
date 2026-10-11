@@ -41,6 +41,17 @@ func ShareLinks(u model.User, srv Server) []string {
 	if set.HysteriaEnabled && srv.allowsBuiltin(model.LaneHysteria) {
 		links = append(links, link.Hysteria2(u, set))
 	}
+	// NaiveProxy is node-only: the master never runs caddy-naive, so a naive link comes
+	// from a remote node alone (the master's NaiveEnabled stays off, but the ServerID
+	// guard states the invariant outright). The user's password is minted when the lane is
+	// first claimed for them; until then link.Naive returns "" and there is nothing to
+	// hand out. It is a plain entry in the list, so it rides the base64 payload like the
+	// others — but it is deliberately absent from the Clash and sing-box profiles, which
+	// have no NaiveProxy shape this panel emits (see clash.go / singbox.go).
+	if set.ServerID != model.LocalNodeID && set.NaiveEnabled && set.NaivePort != 0 &&
+		u.NaivePass != "" && srv.allowsBuiltin(model.LaneNaive) {
+		links = append(links, link.Naive(u, set))
+	}
 	for _, in := range srv.Custom {
 		if !srv.allowsInbound(in.ID) {
 			continue

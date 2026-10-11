@@ -3,9 +3,10 @@ package sub
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/AppsGanin/rospanel/internal/extsub"
 	"net"
 	"strings"
+
+	"github.com/AppsGanin/rospanel/internal/extsub"
 
 	"github.com/AppsGanin/rospanel/internal/link"
 	"github.com/AppsGanin/rospanel/internal/model"
@@ -48,6 +49,11 @@ func singboxProxies(u model.User, srv Server) (proxies []any, tags []string) {
 	// sing-box has no transport at all. Xray-core clients still get it through the
 	// universal link list — see model.SupportsSingBox, which applies the same rule to
 	// custom inbounds.
+	//
+	// NaiveProxy is deliberately absent too: the lane is node-only and its sing-box
+	// outbound is built only for some platforms, so the panel hands it out through the
+	// universal link list (the naive+https:// entry) and the client-config download
+	// instead — see sub.ShareLinks and the naiveCard section.
 	if set.VLESSEnabled && srv.allowsBuiltin(model.LaneVLESS) {
 		proxies = append(proxies, vless)
 		tags = append(tags, nV)
