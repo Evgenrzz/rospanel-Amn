@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/AppsGanin/rospanel/internal/naive"
 	"github.com/AppsGanin/rospanel/internal/nodeapi"
 )
 
@@ -130,5 +133,101 @@ func TestNaiveOffsetPersistAndFallback(t *testing.T) {
 	}
 	if tr := newNaiveTailer(dir, logPath); tr.Offset() != int64(len(body)) {
 		t.Errorf("after garbage the tail starts at %d, want the end", tr.Offset())
+	}
+}
+
+// fakeNaiveCaddy installs a stand-in caddy-naive in dir answering the three verbs the
+// supervisor uses, plus the version marker that keeps EnsureBinary from downloading the
+// real release — the nodeagent-side twin of naive.supervisor_test's fake.
+func fakeNaiveCaddy(t *testing.T, dir string) {
+	t.Helper()
+	script := "#!/bin/sh\ncase \"$1\" in\n" +
+		"run) exec sleep 300;;\n" +
+		"validate) exit 0;;\n" +
+		"reload) exit 0;;\n" +
+		"esac\nexit 0\n"
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(dir, naive.BinaryName)
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bin+".version", []byte(naive.PinnedVersion+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// D2 cert handoff: the panel does not know a node's data directory, so it sends the cert
+// sentinels and the runner substitutes the same cert/key pair the Xray config gets; a
+// literal path is an operator override and is used exactly as sent. The proof is the
+// Caddyfile the supervisor renders and validates before it spawns — its `tls` line must
+// carry the substituted pair, and auto_https must stay off (the node's TLS front owns
+// 80/443, so caddy-naive never requests a certificate of its own).
+func TestSyncNaiveCertHandoff(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("the lane is linux-only (see naive.EnsureBinary)")
+	}
+	dir := t.TempDir()
+	fakeNaiveCaddy(t, dir)
+	panelCert := filepath.Join(dir, "certs", "cert.pem")
+	panelKey := filepath.Join(dir, "certs", "key.pem")
+	a := &Agent{
+		naiveDir: dir,
+		naiveSup: naive.NewSupervisor(dir),
+		certPath: panelCert,
+		keyPath:  panelKey,
+	}
+	t.Cleanup(a.naiveSup.Stop)
+
+	// rendered returns the whole Caddyfile the supervisor wrote on the last Apply.
+	rendered := func() string {
+		t.Helper()
+		cf, err := os.ReadFile(filepath.Join(dir, "Caddyfile"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(cf)
+	}
+	tlsLine := func() string {
+		t.Helper()
+		for _, line := range strings.Split(rendered(), "\n") {
+			if s := strings.TrimSpace(line); strings.HasPrefix(s, "tls ") {
+				return s
+			}
+		}
+		t.Fatalf("no tls line in the rendered Caddyfile:\n%s", rendered())
+		return ""
+	}
+
+	// The sentinels: the runner hands caddy the panel's own cert, not the placeholder.
+	a.syncNaive(&nodeapi.NaiveState{
+		Port:     2053,
+		CertPath: nodeapi.CertPathSentinel,
+		KeyPath:  nodeapi.KeyPathSentinel,
+		Users:    []nodeapi.NaiveUser{{Name: "u7", Pass: "0123456789abcdef01234567"}},
+	}, "vpn.example.com")
+	if a.naiveErr != "" {
+		t.Fatalf("the sentinel apply reported an error: %q", a.naiveErr)
+	}
+	if got, want := tlsLine(), "tls "+panelCert+" "+panelKey; got != want {
+		t.Errorf("sentinel handoff = %q, want %q", got, want)
+	}
+	if !strings.Contains(rendered(), "auto_https off") {
+		t.Error("caddy-naive would request its own certificate: auto_https is not off")
+	}
+
+	// A literal path is an operator override and is used exactly as sent.
+	a.syncNaive(&nodeapi.NaiveState{
+		Port:     2053,
+		CertPath: "/opt/custom/fullchain.pem",
+		KeyPath:  "/opt/custom/privkey.pem",
+		Users:    []nodeapi.NaiveUser{{Name: "u7", Pass: "0123456789abcdef01234567"}},
+	}, "vpn.example.com")
+	if a.naiveErr != "" {
+		t.Fatalf("the override apply reported an error: %q", a.naiveErr)
+	}
+	if got, want := tlsLine(), "tls /opt/custom/fullchain.pem /opt/custom/privkey.pem"; got != want {
+		t.Errorf("literal override = %q, want %q", got, want)
 	}
 }
