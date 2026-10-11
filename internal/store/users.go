@@ -1219,7 +1219,7 @@ type NaiveClaim struct {
 // One transaction for the whole batch, and the same mint-if-empty guard ClaimUsersAWG
 // uses: the first node to bring the lane up claims for every user at once, and two
 // nodes building their state at the same moment must not leave one holding a password
-// the user's naive+secure:// link no longer carries.
+// the user's naive+https:// link no longer carries.
 func (s *Store) ClaimUsersNaive(claims []NaiveClaim) (map[int64]string, error) {
 	out := make(map[int64]string, len(claims))
 	err := s.withTx(func(tx *sql.Tx) error {

@@ -3243,6 +3243,23 @@ const en: Dict = {
     awgParams: "Obfuscation parameters",
     awgHint: "AmneziaWG 3.1 — WireGuard with a masked handshake and header protection (AmneziaVPN and AmneziaWG clients from 5.0.1.5). The panel mints the keys; after a regen the configs already handed out stop working.",
     enableAwg: "Turn AmneziaWG on to set the port and DNS.",
+    naivePort: "TCP port",
+    naivePortAuto: "2053 by default",
+    naivePortHint: "The port this server's NaiveProxy tunnel listens on. Empty — 2053.",
+    naiveProbe: "Probe-resistance secret",
+    naiveProbeHint:
+      "A global default every node inherits: a probe that does not carry it gets the decoy site instead of the tunnel. Empty — probe resistance is off.",
+    naiveProbePlaceholder: "a long random string",
+    naiveMasq: "Masquerade site",
+    naiveMasqHint: "A global default every node inherits: the URL the decoy serves to a probe.",
+    naiveNodeGlobalHint:
+      "The probe secret and the masquerade site are global — set them in the master's connections.",
+    naiveInherited: "not set",
+    naiveHint:
+      "NaiveProxy is a node-only lane with a real Chrome TLS fingerprint (NekoBox/Matsuri, Shadowrocket, v2rayN). The panel mints each user's password; it is shown only in their subscription.",
+    naiveRegen: "Re-mint all passwords",
+    naiveWillRegen: "Every password will be re-minted",
+    enableNaive: "Turn NaiveProxy on to set the port.",
     off: "disabled",
     name: "Connection name",
     nameHint:

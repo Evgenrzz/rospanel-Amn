@@ -76,6 +76,10 @@ type Hy = {
 type Reality = { port: number; dests: string[]; antiReplay: boolean };
 type Anti = { fragment: boolean; min13: boolean; blockQuic: boolean };
 type Awg = { port: number; dns: string };
+// Naive carries the NaiveProxy lane's editable shape. The port and name are per
+// server; probeSecret and masqueradeURL are GLOBAL defaults — the master edits them,
+// a node only reads what it inherits (see the naive block below).
+type Naive = { port: number; probeSecret: string; masqueradeURL: string };
 
 // ConnectionsEditor is the full connection editor (protocols on/off + names +
 // fingerprints + ports + hop + WS + REALITY donor/keys/regen/port/anti-replay +
@@ -148,6 +152,8 @@ export function ConnectionsEditor({
   const [regenReality, setRegenReality] = useState(false);
   const [awgCfg, setAwgCfg] = useState<Awg>({ port: 0, dns: "" });
   const [regenAwg, setRegenAwg] = useState(false);
+  const [naive, setNaive] = useState<Naive>({ port: 0, probeSecret: "", masqueradeURL: "" });
+  const [regenNaive, setRegenNaive] = useState(false);
   const [saved, setSaved] = useState<{
     enabled: Record<string, boolean>;
     fps: Record<string, string>;
@@ -156,6 +162,7 @@ export function ConnectionsEditor({
     reality: Reality;
     anti: Anti;
     awg: Awg;
+    naive: Naive;
   }>({
     enabled: {},
     fps: {},
@@ -164,6 +171,7 @@ export function ConnectionsEditor({
     reality: { port: 0, dests: [], antiReplay: false },
     anti: { fragment: false, min13: false, blockQuic: false },
     awg: { port: 0, dns: "" },
+    naive: { port: 0, probeSecret: "", masqueradeURL: "" },
   });
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
@@ -188,6 +196,11 @@ export function ConnectionsEditor({
     };
     const a: Anti = { fragment: s.tls_fragment, min13: s.tls_min13, blockQuic: s.block_quic };
     const g: Awg = { port: s.awg_port, dns: s.awg_dns || "" };
+    const nv: Naive = {
+      port: s.naive_port,
+      probeSecret: s.naive_probe_secret || "",
+      masqueradeURL: s.naive_masquerade_url || "",
+    };
     setEnabled(en);
     setFps(fp);
     setNames(nm);
@@ -195,9 +208,11 @@ export function ConnectionsEditor({
     setReality(r);
     setAnti(a);
     setAwgCfg(g);
+    setNaive(nv);
     setRegenReality(false);
     setRegenAwg(false);
-    setSaved({ enabled: en, fps: fp, names: nm, hy: h, reality: r, anti: a, awg: g });
+    setRegenNaive(false);
+    setSaved({ enabled: en, fps: fp, names: nm, hy: h, reality: r, anti: a, awg: g, naive: nv });
   };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount; the loader is redefined every render, so listing it would refetch in a loop
@@ -224,9 +239,17 @@ export function ConnectionsEditor({
   const antiServerChanged = anti.min13 !== saved.anti.min13;
   const antiClientChanged = anti.fragment !== saved.anti.fragment || anti.blockQuic !== saved.anti.blockQuic;
   const awgChanged = awgCfg.port !== saved.awg.port || awgCfg.dns !== saved.awg.dns || regenAwg;
+  // NaiveProxy never runs inside Xray (it is caddy-naive on the node), so a naive-only
+  // change is a plain save, not an Xray restart — hence it is absent from restartsXray.
+  const naiveChanged =
+    naive.port !== saved.naive.port ||
+    naive.probeSecret !== saved.naive.probeSecret ||
+    naive.masqueradeURL !== saved.naive.masqueradeURL ||
+    regenNaive;
   const dirty =
     fpsChanged || namesChanged || protocolsChanged || hyChanged ||
-    realityChanged || regenReality || antiServerChanged || antiClientChanged || awgChanged;
+    realityChanged || regenReality || antiServerChanged || antiClientChanged || awgChanged ||
+    naiveChanged;
   // Config-affecting changes restart Xray (on the master) or re-push to the node.
   const restartsXray =
     protocolsChanged || portsChanged || obfsChanged || realityChanged || regenReality || antiServerChanged;
@@ -277,6 +300,10 @@ export function ConnectionsEditor({
         awg_port: awgCfg.port,
         awg_dns: awgCfg.dns,
         regen_awg_keys: regenAwg,
+        naive_port: naive.port,
+        naive_probe_secret: naive.probeSecret,
+        naive_masquerade_url: naive.masqueradeURL,
+        regen_naive_pass: regenNaive,
       });
       applyStatus(s);
       notifySuccess(t("common.saved"));
@@ -293,8 +320,10 @@ export function ConnectionsEditor({
     setReality(saved.reality);
     setAnti(saved.anti);
     setAwgCfg(saved.awg);
+    setNaive(saved.naive);
     setRegenReality(false);
     setRegenAwg(false);
+    setRegenNaive(false);
   };
 
   if (!loaded) return <CenterLoader />;
@@ -589,6 +618,86 @@ export function ConnectionsEditor({
                     </>
                   ) : (
                     <SettingRow hint={t("conn.enableAwg")} />
+                  ))}
+
+                {p.key === "naive" &&
+                  (on ? (
+                    <>
+                      <SettingRow
+                        label={t("conn.naivePort")}
+                        hint={t("conn.naivePortHint")}
+                        field={
+                          <TextInput
+                            type="number"
+                            value={naive.port ? String(naive.port) : ""}
+                            placeholder={t("conn.naivePortAuto")}
+                            onChange={(v) =>
+                              setNaive((n) => ({
+                                ...n,
+                                port: Number(v.replace(/\D/g, "")) || 0,
+                              }))
+                            }
+                          />
+                        }
+                      />
+                      {restartsPanel ? (
+                        // The master owns the GLOBAL defaults every node inherits, so
+                        // here they are editable; a node only reads what it inherits.
+                        <>
+                          <SettingRow
+                            label={t("conn.naiveProbe")}
+                            hint={t("conn.naiveProbeHint")}
+                          >
+                            <TextInput
+                              value={naive.probeSecret}
+                              placeholder={t("conn.naiveProbePlaceholder")}
+                              onChange={(v) =>
+                                setNaive((n) => ({ ...n, probeSecret: v }))
+                              }
+                            />
+                          </SettingRow>
+                          <SettingRow
+                            label={t("conn.naiveMasq")}
+                            hint={t("conn.naiveMasqHint")}
+                          >
+                            <TextInput
+                              value={naive.masqueradeURL}
+                              placeholder="https://"
+                              onChange={(v) =>
+                                setNaive((n) => ({ ...n, masqueradeURL: v }))
+                              }
+                            />
+                          </SettingRow>
+                          <SettingRow
+                            hint={t("conn.naiveHint")}
+                            control={
+                              <Button
+                                size="xs"
+                                variant="light"
+                                color={regenNaive ? "orange" : "gray"}
+                                onClick={() => setRegenNaive((v) => !v)}
+                              >
+                                {t(regenNaive ? "conn.naiveWillRegen" : "conn.naiveRegen")}
+                              </Button>
+                            }
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <LongField
+                            label={t("conn.naiveProbe")}
+                            value={naive.probeSecret || t("conn.naiveInherited")}
+                          />
+                          <LongField
+                            label={t("conn.naiveMasq")}
+                            value={naive.masqueradeURL || t("conn.naiveInherited")}
+                          />
+                          <SettingRow hint={t("conn.naiveNodeGlobalHint")} />
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <SettingRow hint={t("conn.enableNaive")} />
                   ))}
               </>
             )}

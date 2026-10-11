@@ -181,7 +181,7 @@ type User struct {
 	// naive.UserName(id) ("u<id>"). Minted the first time the naive lane is enabled
 	// for them and kept so every subscription and node Caddyfile carries the same
 	// credential. Needed verbatim for the Caddyfile basic_auth and the
-	// naive+secure:// link, so it is stored in clear in memory and encrypted at rest
+	// naive+https:// link, so it is stored in clear in memory and encrypted at rest
 	// like Password and WGPrivateKey.
 	NaivePass string `json:"-"`
 

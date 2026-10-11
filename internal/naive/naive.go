@@ -33,7 +33,7 @@ import (
 )
 
 // User is one basic-auth credential pair served by the tunnel. Name is the
-// username clients put in their naive+secure:// link (UserName below); Pass is
+// username clients put in their naive+https:// link (UserName below); Pass is
 // the plaintext password — the only form caddy's forward_proxy accepts.
 type User struct {
 	Name string
@@ -119,7 +119,7 @@ var userNameRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 // passRe matches generated passwords (alphanumeric). A narrower set than
 // caddy would accept on purpose: the password also travels inside a
-// naive+secure:// URL userinfo, where anything outside alphanumerics would
+// naive+https:// URL userinfo, where anything outside alphanumerics would
 // need escaping rules that differ between clients.
 var passRe = regexp.MustCompile(`^[A-Za-z0-9]{16,64}$`)
 

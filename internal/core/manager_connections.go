@@ -313,7 +313,7 @@ type ConnectionsUpdate struct {
 
 	// NaiveProxy (node-only): the port (0 = keep / default), the GLOBAL probe secret
 	// and masquerade URL every node inherits, and a request to re-mint every user's
-	// password — which kills every naive+secure:// link handed out so far, the point
+	// password — which kills every naive+https:// link handed out so far, the point
 	// of asking for it.
 	NaivePort          int    `json:"naive_port"`
 	NaiveProbeSecret   string `json:"naive_probe_secret"`

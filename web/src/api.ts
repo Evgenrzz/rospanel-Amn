@@ -346,6 +346,13 @@ export interface ConnectionsStatus {
   awg_dns: string
   awg_running: boolean
   awg_error?: string
+  // NaiveProxy is a node-only lane: the master never serves it, so there is no
+  // running/error here. naive_port and the display name round-trip per server, while
+  // the probe secret and masquerade URL are GLOBAL defaults every node inherits (only
+  // the master stores them; a node reads them and its save leaves them untouched).
+  naive_port: number
+  naive_probe_secret: string
+  naive_masquerade_url: string
 }
 
 // ConnectionsUpdate is the whole connection surface, applied in one request.
@@ -370,6 +377,14 @@ export interface ConnectionsUpdate {
   awg_port: number
   awg_dns: string
   regen_awg_keys: boolean
+  // NaiveProxy (node-only). The port and display name (via names) persist per server;
+  // the probe secret and masquerade URL are the GLOBAL defaults, stored only by the
+  // master. regen_naive_pass re-mints every user's password, killing the naive+https://
+  // links handed out so far — the master honours it, a node ignores it.
+  naive_port: number
+  naive_probe_secret: string
+  naive_masquerade_url: string
+  regen_naive_pass: boolean
 }
 
 export const applyConnections = (u: ConnectionsUpdate) =>

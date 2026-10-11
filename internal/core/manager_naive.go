@@ -27,7 +27,7 @@ import (
 // naiveDefaultPort is the TCP port a freshly-enabled lane listens on. The panel fronts
 // 443/80 with its own TLS, so the lane takes a high port; 2053 is the conventional
 // NaiveProxy choice (see internal/naive.Config.Port) and, unlike the AmneziaWG port, it
-// is stable rather than random: it is embedded in every naive+secure:// link a client
+// is stable rather than random: it is embedded in every naive+https:// link a client
 // holds, so rotating it would invalidate them all.
 const naiveDefaultPort = 2053
 
@@ -154,7 +154,7 @@ func validateNaiveUpdate(port int, probeSecret, masqueradeURL string) (int, stri
 }
 
 // RegenNaivePass gives one user a fresh NaiveProxy password, invalidating every
-// naive+secure:// link handed out for them so far — which is the point of asking for it.
+// naive+https:// link handed out for them so far — which is the point of asking for it.
 // It wakes the nodes so the new credential reaches every lane the user is on without
 // waiting for a cadence tick. A user the lane was never enabled for simply gets their
 // first password; the credential is only ever served where the lane is on and the user
