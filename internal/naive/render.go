@@ -55,12 +55,14 @@ func Render(cfg Config) (string, error) {
 
 `, admin)
 
-	// Site address: the bare port first, then the domain. ":<port>" must lead
-	// for the CONNECT to match however the client sets SNI/Host (the same
-	// reason the reference template lists ":443, example.com").
+	// Site address: the bare port first, then the domain WITH the port. The
+	// domain must carry the port: a bare domain in a Caddy site address
+	// defaults to :443, and 443 belongs to the node's TLS front — caddy would
+	// fail to bind it and crash-loop the lane. ":<port>" leads so the CONNECT
+	// matches however the client sets SNI/Host.
 	site := fmt.Sprintf(":%d", cfg.Port)
 	if cfg.Domain != "" {
-		site += ", " + cfg.Domain
+		site += fmt.Sprintf(", %s:%d", cfg.Domain, cfg.Port)
 	}
 	fmt.Fprintf(&b, "%s {\n\ttls %s %s\n", site, cfg.CertFile, cfg.KeyFile)
 

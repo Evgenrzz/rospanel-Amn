@@ -44,7 +44,7 @@ func TestRenderStructure(t *testing.T) {
 		"protocols h1 h2",
 		"auto_https off",
 		"admin off",
-		":2053, vpn.example.com {",
+		":2053, vpn.example.com:2053 {",
 		"tls /var/lib/rospanel-node/tls/fullchain.pem /var/lib/rospanel-node/tls/privkey.pem",
 		"output file /var/lib/rospanel-node/naive/access.log {",
 		"roll_size 50mb",
