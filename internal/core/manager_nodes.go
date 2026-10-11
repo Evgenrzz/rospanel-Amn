@@ -295,11 +295,29 @@ func (m *Manager) ApplyNodeConnections(id int64, u ConnectionsUpdate) error {
 			awgPort = pickAWGPort()
 		}
 	}
+	// NaiveProxy: a node owns only its toggle, port and display name. The probe secret
+	// and masquerade URL are GLOBAL defaults it inherits from the master (see
+	// nodeSettings), so they are validated here — a hand-made request must not smuggle
+	// a bad value in — but never stored per node.
+	naivePort, _, _, err := validateNaiveUpdate(u.NaivePort, u.NaiveProbeSecret, u.NaiveMasqueradeURL)
+	if err != nil {
+		return err
+	}
+	if u.Protocols["naive"] && naivePort == 0 {
+		if n.Connections != nil && n.Connections.NaivePort != 0 {
+			naivePort = n.Connections.NaivePort
+		} else {
+			naivePort = naiveDefaultPort
+		}
+	}
 	if err := m.store.SetNodeProtocols(id,
 		u.Protocols["vless"], u.Protocols["hysteria2"], u.Protocols["reality"]); err != nil {
 		return err
 	}
 	if err := m.store.SetNodeAWGEnabled(id, u.Protocols["awg"]); err != nil {
+		return err
+	}
+	if err := m.store.SetNodeNaiveEnabled(id, u.Protocols["naive"]); err != nil {
 		return err
 	}
 	if u.Protocols["awg"] || u.RegenAWGKeys {
@@ -348,6 +366,8 @@ func (m *Manager) ApplyNodeConnections(id int64, u ConnectionsUpdate) error {
 		AWGPort:            awgPort,
 		AWGName:            connNames["awg"],
 		AWGDNS:             awgDNS,
+		NaivePort:          naivePort,
+		NaiveName:          connNames["naive"],
 	}
 	if err := m.store.SetNodeConnections(id, blob); err != nil {
 		return err

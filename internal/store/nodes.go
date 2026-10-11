@@ -50,7 +50,8 @@ const nodeColumns = `id, name, host, enabled,
 	proxy_accounts, traffic_coefficient,
 	country, sort_weight, capacity, hide_when_full,
 	traffic_limit, traffic_period, hide_when_over, traffic_reset_day,
-	awg_enabled, awg_private_key, awg_public_key, awg_params`
+	awg_enabled, awg_private_key, awg_public_key, awg_params,
+	naive_enabled`
 
 // generateNodeToken mints a raw token ("rpn_<43 url-safe chars>", 256 bits).
 func generateNodeToken() (string, error) {
@@ -68,7 +69,7 @@ func scanNode(sc interface{ Scan(...any) error }) (*model.Node, error) {
 	var enabled, xrayRunning, certSelfSigned, warpEn, operaEn int
 	var proxySocksEn, proxyHTTPEn, hideFull, hideOver int
 	var proxyAccounts string
-	var vlessEn, hysteriaEn, realityEn, awgEn sql.NullBool
+	var vlessEn, hysteriaEn, realityEn, awgEn, naiveEn sql.NullBool
 	var awgParamsJSON string
 	var routingJSON, connectionsJSON string
 	var xrayDNS sql.NullString
@@ -90,6 +91,7 @@ func scanNode(sc interface{ Scan(...any) error }) (*model.Node, error) {
 		&n.Country, &n.Weight, &n.Capacity, &hideFull,
 		&n.TrafficLimit, &n.TrafficPeriod, &hideOver, &n.TrafficResetDay,
 		&awgEn, &n.AWGPrivateKey, &n.AWGPublicKey, &awgParamsJSON,
+		&naiveEn,
 	); err != nil {
 		return nil, err
 	}
@@ -104,6 +106,7 @@ func scanNode(sc interface{ Scan(...any) error }) (*model.Node, error) {
 	n.RealityPrivateKey = decField(n.RealityPrivateKey)
 	n.AWGPrivateKey = decField(n.AWGPrivateKey)
 	n.AWGEnabled = nullBoolPtr(awgEn)
+	n.NaiveEnabled = nullBoolPtr(naiveEn)
 	if awgParamsJSON != "" {
 		_ = json.Unmarshal([]byte(awgParamsJSON), &n.AWGParams)
 	}
@@ -660,6 +663,13 @@ func (s *Store) PurgeDeletedNodes(before int64) (int64, error) {
 // its other protocols).
 func (s *Store) SetNodeAWGEnabled(id int64, enabled bool) error {
 	_, err := s.db.Exec(`UPDATE nodes SET awg_enabled = ? WHERE id = ?`, boolToInt(enabled), id)
+	return err
+}
+
+// SetNodeNaiveEnabled flips a node's NaiveProxy lane (the node's own toggle, like
+// its other protocols). The port and display name ride in connections_config.
+func (s *Store) SetNodeNaiveEnabled(id int64, enabled bool) error {
+	_, err := s.db.Exec(`UPDATE nodes SET naive_enabled = ? WHERE id = ?`, boolToInt(enabled), id)
 	return err
 }
 

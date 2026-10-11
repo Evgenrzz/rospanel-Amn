@@ -8,17 +8,19 @@ import (
 )
 
 // Built-in lane keys, as used in a group grant token and in the protocol toggles.
-// These are the three lanes the panel manages itself, distinct from custom inbounds.
+// These are the lanes the panel manages itself, distinct from custom inbounds.
 const (
 	LaneVLESS    = "vless"
 	LaneReality  = "reality"
 	LaneHysteria = "hysteria2"
-	LaneAWG      = "awg" // AmneziaWG tunnel (internal/awg)
+	LaneAWG      = "awg"   // AmneziaWG tunnel (internal/awg)
+	LaneNaive    = "naive" // NaiveProxy lane (internal/naive), served by nodes only
 )
 
 // BuiltinLaneKeys lists the built-in lane keys in display order (distinct from
-// BuiltinLanes(), which is the egress-lane set — an unrelated concept).
-var BuiltinLaneKeys = []string{LaneVLESS, LaneReality, LaneHysteria, LaneAWG}
+// BuiltinLanes(), which is the egress-lane set — an unrelated concept). Adding a key
+// here is all a new lane needs for group grants to gate it (see BuiltinToken).
+var BuiltinLaneKeys = []string{LaneVLESS, LaneReality, LaneHysteria, LaneAWG, LaneNaive}
 
 // Group is a named set of connections a user is allowed to use. Membership is
 // many-to-many; a user in no group may use everything (see Access), and so may a user

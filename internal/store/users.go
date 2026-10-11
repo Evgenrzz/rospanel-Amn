@@ -14,7 +14,7 @@ const userCols = `id, name, uuid, password, sub_token, enabled,
 	data_limit, expire_at, used_up, used_down, last_up, last_down, created_at,
 	reset_period, last_reset_at, last_seen, device_limit, speed_limit, tg_chat_id,
 	plan_id, trial_used, tg_link_code, tg_link_code_at, notified_status,
-	notified_expire_at, notified_quota_at, device_over_since, note, tags, wg_private_key,
+	notified_expire_at, notified_quota_at, device_over_since, note, tags, wg_private_key, naive_pass,
 	abuse_action, abuse_until, abuse_prev_speed, abuse_warned_day, hold_seconds, awg_slot,
 	extra_devices, pack_data, hook_expire_at, hook_quota_at, hook_expire_stage, mailing_off, lang`
 
@@ -762,7 +762,7 @@ func (s *Store) WorkingSet(now int64) (ids []int64, caps map[int64]int, err erro
 // these few columns take ~4ms.
 func (s *Store) WorkingCredentials(now int64) ([]model.User, error) {
 	rows, err := s.db.Query(`WITH device_count AS (`+deviceCountCTE+`)
-		SELECT u.id, u.uuid, u.password, u.wg_private_key, u.awg_slot FROM users u `+workingUsersWhere+`
+		SELECT u.id, u.uuid, u.password, u.wg_private_key, u.naive_pass, u.awg_slot FROM users u `+workingUsersWhere+`
 		ORDER BY u.id ASC`, workingUsersArgs(now)...)
 	if err != nil {
 		return nil, err
@@ -774,12 +774,13 @@ func (s *Store) WorkingCredentials(now int64) ([]model.User, error) {
 	type cred struct {
 		id                 int64
 		uuid, password, wg string
+		naive              string
 		slot               int
 	}
 	var creds []cred
 	for rows.Next() {
 		var c cred
-		if err := rows.Scan(&c.id, &c.uuid, &c.password, &c.wg, &c.slot); err != nil {
+		if err := rows.Scan(&c.id, &c.uuid, &c.password, &c.wg, &c.naive, &c.slot); err != nil {
 			return nil, err
 		}
 		creds = append(creds, c)
@@ -789,7 +790,7 @@ func (s *Store) WorkingCredentials(now int64) ([]model.User, error) {
 	}
 	out := make([]model.User, len(creds))
 	for i, c := range creds {
-		out[i] = model.User{ID: c.id, UUID: c.uuid, Password: decField(c.password), WGPrivateKey: decField(c.wg), AWGSlot: c.slot}
+		out[i] = model.User{ID: c.id, UUID: c.uuid, Password: decField(c.password), WGPrivateKey: decField(c.wg), NaivePass: decField(c.naive), AWGSlot: c.slot}
 	}
 	return out, nil
 }
@@ -1201,6 +1202,87 @@ func (s *Store) ClaimUsersAWG(claims []AWGClaim, first, last int) (map[int64]AWG
 		return nil, err
 	}
 	return out, nil
+}
+
+// NaiveClaim asks for a user's NaiveProxy password. Pass is freshly minted, kept only
+// if the user has none yet.
+type NaiveClaim struct {
+	UserID int64
+	Pass   string
+}
+
+// ClaimUsersNaive gives each claimed user a NaiveProxy password — the one minted for
+// them unless they already have one — and returns what each user ends up with. A user
+// deleted meanwhile is left out of the result. Written once, when the lane is first
+// enabled for the user; a regeneration overwrites it through SetUsersNaivePass.
+//
+// One transaction for the whole batch, and the same mint-if-empty guard ClaimUsersAWG
+// uses: the first node to bring the lane up claims for every user at once, and two
+// nodes building their state at the same moment must not leave one holding a password
+// the user's naive+secure:// link no longer carries.
+func (s *Store) ClaimUsersNaive(claims []NaiveClaim) (map[int64]string, error) {
+	out := make(map[int64]string, len(claims))
+	err := s.withTx(func(tx *sql.Tx) error {
+		for _, c := range claims {
+			if _, err := tx.Exec(`UPDATE users SET naive_pass = ? WHERE id = ? AND naive_pass = ''`,
+				encField(c.Pass), c.UserID); err != nil {
+				return err
+			}
+			var pass string
+			err := tx.QueryRow(`SELECT naive_pass FROM users WHERE id = ?`, c.UserID).Scan(&pass)
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			out[c.UserID] = decField(pass)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SetUsersNaivePass overwrites the given users' NaiveProxy passwords — a regeneration,
+// which unlike a claim replaces what is there. The caller mints the passwords and picks
+// the users: one, for a single user's regen, or every provisioned user
+// (NaivePassUserIDs) for a fleet-wide one.
+func (s *Store) SetUsersNaivePass(passes map[int64]string) error {
+	return s.withTx(func(tx *sql.Tx) error {
+		for id, pass := range passes {
+			if _, err := tx.Exec(`UPDATE users SET naive_pass = ? WHERE id = ?`,
+				encField(pass), id); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// NaivePassUserIDs returns the ids of every user who already has a NaiveProxy password,
+// in id order: the set a fleet-wide regeneration re-mints, so it touches exactly the
+// users the lane was ever enabled for and nobody else.
+func (s *Store) NaivePassUserIDs() ([]int64, error) {
+	rows, err := s.db.Query(`SELECT id FROM users WHERE naive_pass <> '' ORDER BY id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return ids, nil
 }
 
 // SetUserNote replaces the operator's note on a user.
@@ -1649,7 +1731,7 @@ func (s *Store) queryUsersOn(db *sql.DB, query string, args ...any) ([]model.Use
 			&u.DataLimit, &u.ExpireAt, &u.UsedUp, &u.UsedDown, &u.LastUp, &u.LastDown, &created,
 			&u.ResetPeriod, &u.LastResetAt, &u.LastSeen, &u.DeviceLimit, &u.SpeedLimit, &u.TgChatID,
 			&u.PlanID, &trialUsed, &u.TgLinkCode, &u.TgLinkCodeAt, &u.NotifiedStatus,
-			&u.NotifiedExpireAt, &u.NotifiedQuotaAt, &u.DeviceOverSince, &u.Note, &tags, &u.WGPrivateKey,
+			&u.NotifiedExpireAt, &u.NotifiedQuotaAt, &u.DeviceOverSince, &u.Note, &tags, &u.WGPrivateKey, &u.NaivePass,
 			&u.AbuseAction, &u.AbuseUntil, &u.AbusePrevSpeed, &u.AbuseWarnedDay, &u.HoldSeconds, &u.AWGSlot,
 			&u.ExtraDevices, &u.PackData, &u.HookExpireAt, &u.HookQuotaAt, &u.HookExpireStage, &mailingOff, &u.Lang,
 		); err != nil {
@@ -1661,6 +1743,7 @@ func (s *Store) queryUsersOn(db *sql.DB, query string, args ...any) ([]model.Use
 		u.Tags = model.DecodeTags(tags)
 		u.Password = decField(u.Password)
 		u.WGPrivateKey = decField(u.WGPrivateKey)
+		u.NaivePass = decField(u.NaivePass)
 		u.CreatedAt = time.Unix(created, 0)
 		out = append(out, u)
 	}

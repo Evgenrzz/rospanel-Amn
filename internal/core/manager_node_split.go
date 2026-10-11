@@ -133,7 +133,7 @@ func diffNodeInputs(a, b *nodeInputs) ([]int64, bool) {
 			j++
 		default:
 			x, y := &a.users[i], &b.users[j]
-			if x.UUID != y.UUID || x.Password != y.Password || x.WGPrivateKey != y.WGPrivateKey || x.AWGSlot != y.AWGSlot {
+			if x.UUID != y.UUID || x.Password != y.Password || x.WGPrivateKey != y.WGPrivateKey || x.AWGSlot != y.AWGSlot || x.NaivePass != y.NaivePass {
 				touched[x.ID] = struct{}{}
 			}
 			i++
@@ -393,6 +393,11 @@ func encodeSkeleton(sc *xray.SplitConfig, meta nodeapi.NodeMeta) (json.RawMessag
 		tunnel.Peers = nil
 		meta.AWG = &tunnel
 	}
+	if meta.Naive != nil {
+		lane := *meta.Naive
+		lane.Users = nil
+		meta.Naive = &lane
+	}
 	return json.Marshal(nodeapi.Skeleton{Config: cfg, Slots: sc.Slots, Meta: meta})
 }
 
@@ -400,14 +405,20 @@ func encodeBlocked(meta nodeapi.NodeMeta) (json.RawMessage, error) {
 	return json.Marshal(nodeapi.Blocked{IPs: meta.BlockedIPs, TTLHours: meta.BlockTTLHours, Banned: meta.BannedIPs})
 }
 
-// splitRows encodes the row of every user a split config lets in — on an inbound, or as
-// a peer of the tunnel — ascending by id, and returns their ids with them. users must be
-// ascending by id, as the working set is read.
+// splitRows encodes the row of every user a split config lets in — on an inbound, as a
+// peer of the tunnel, or as a credential of the naive lane — ascending by id, and
+// returns their ids with them. users must be ascending by id, as the working set is read.
 func splitRows(sc *xray.SplitConfig, users []model.User, meta nodeapi.NodeMeta, speed map[string]int) ([]json.RawMessage, []int64, error) {
 	peers := map[string]nodeapi.AWGPeer{}
 	if meta.AWG != nil {
 		for _, p := range meta.AWG.Peers {
 			peers[p.Email] = p
+		}
+	}
+	naiveByName := map[string]nodeapi.NaiveUser{}
+	if meta.Naive != nil {
+		for _, nu := range meta.Naive.Users {
+			naiveByName[nu.Name] = nu
 		}
 	}
 	var rows []json.RawMessage
@@ -420,7 +431,8 @@ func splitRows(sc *xray.SplitConfig, users []model.User, meta nodeapi.NodeMeta, 
 		email := model.UserEmail(u.ID)
 		slots := sc.Placed[u.ID]
 		peer, tunnelled := peers[email]
-		if len(slots) == 0 && !tunnelled {
+		nuser, onNaive := naiveByName[email]
+		if len(slots) == 0 && !tunnelled && !onNaive {
 			continue
 		}
 		row := nodeapi.UserRow{ID: u.ID, Slots: slots, Speed: speed[email]}
@@ -440,6 +452,9 @@ func splitRows(sc *xray.SplitConfig, users []model.User, meta nodeapi.NodeMeta, 
 		}
 		if tunnelled {
 			row.AWGKey, row.AWGAddr = peer.PublicKey, peer.Addr
+		}
+		if onNaive {
+			row.NaivePass = nuser.Pass
 		}
 		raw, err := json.Marshal(row)
 		if err != nil {

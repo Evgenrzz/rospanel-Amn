@@ -165,6 +165,9 @@ func reservedPorts(set *model.Settings) model.ReservedPorts {
 	if set.AWGEnabled && set.AWGPort > 0 {
 		r.HoldUDP(set.AWGPort, "AmneziaWG")
 	}
+	if set.NaiveEnabled && set.NaivePort > 0 {
+		r.HoldTCP(set.NaivePort, "NaiveProxy")
+	}
 	return r
 }
 

@@ -151,13 +151,18 @@ func (r *servedRegistry) forget(nodeID int64) {
 }
 
 // servedUserIDs lists the users a node's state lets in: everyone on an inbound of its
-// Xray config, and every peer of its AmneziaWG tunnel. readable is false when the
-// config holds users this cannot read.
-func servedUserIDs(cfg *xray.Config, tunnel *nodeapi.AWGState) (ids []int64, readable bool) {
+// Xray config, every peer of its AmneziaWG tunnel, and every credential of its
+// NaiveProxy lane. readable is false when the config holds users this cannot read.
+func servedUserIDs(cfg *xray.Config, tunnel *nodeapi.AWGState, naive *nodeapi.NaiveState) (ids []int64, readable bool) {
 	emails, readable := cfg.ClientEmails()
 	if tunnel != nil {
 		for _, p := range tunnel.Peers {
 			emails = append(emails, p.Email)
+		}
+	}
+	if naive != nil {
+		for _, u := range naive.Users {
+			emails = append(emails, u.Name)
 		}
 	}
 	ids = make([]int64, 0, len(emails))
@@ -174,8 +179,8 @@ func servedUserIDs(cfg *xray.Config, tunnel *nodeapi.AWGState) (ids []int64, rea
 
 // noteNodeServed records who a state just built for a node lets in, from inputs read
 // under stamp seq.
-func (m *Manager) noteNodeServed(nodeID int64, cfg *xray.Config, tunnel *nodeapi.AWGState, seq uint64) {
-	ids, readable := servedUserIDs(cfg, tunnel)
+func (m *Manager) noteNodeServed(nodeID int64, cfg *xray.Config, tunnel *nodeapi.AWGState, naive *nodeapi.NaiveState, seq uint64) {
+	ids, readable := servedUserIDs(cfg, tunnel, naive)
 	if !readable && m.siteNotice.should(fmt.Sprintf("node-served-unread:%d", nodeID), time.Now()) {
 		logErr("node state: the config's users cannot be read, so the node's reports are not checked against them",
 			"node", nodeID)

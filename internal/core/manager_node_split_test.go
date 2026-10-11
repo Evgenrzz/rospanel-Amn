@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -421,6 +422,7 @@ func TestDiffNodeInputs(t *testing.T) {
 		{"a uuid", func(in *nodeInputs) { in.users[1].UUID = "z" }, []int64{3}},
 		{"a tunnel key", func(in *nodeInputs) { in.users[2].WGPrivateKey = "k" }, []int64{5}},
 		{"a tunnel slot", func(in *nodeInputs) { in.users[2].AWGSlot = 9 }, []int64{5}},
+		{"a naive password", func(in *nodeInputs) { in.users[0].NaivePass = "np" }, []int64{1}},
 		{"access narrowed", func(in *nodeInputs) { in.access[1] = model.Access{Tokens: map[string]bool{}} }, []int64{1}},
 		{"access widened", func(in *nodeInputs) { delete(in.access, 3) }, []int64{3}},
 		{"access token", func(in *nodeInputs) { in.access[3] = model.Access{Tokens: map[string]bool{"y": true}} }, []int64{3}},
@@ -577,5 +579,105 @@ func TestNodeConfigHealthAsksLikeASync(t *testing.T) {
 	}
 	if c := report(); c.DetailKey != "health.nodeConfigCurrent" {
 		t.Errorf("after taking the change: %s", c.DetailKey)
+	}
+}
+
+// The naive lane splits like the AmneziaWG tunnel: the skeleton carries the lane with the
+// credentials stripped, and each user's password rides in their own row. So the node
+// assembles exactly the state the panel would push whole, the hashed skeleton never holds
+// a plaintext password, and regenerating one password is a delta that touches only that
+// user — the skeleton, and its hash, do not move.
+func TestNodeSplitCarriesNaiveCredentials(t *testing.T) {
+	m := nodeTestManager(t)
+	node := splitTestNode(t, m)
+	if err := m.store.SetNodeNaiveEnabled(node.id, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.store.SetNodeConnections(node.id, &model.NodeConnections{NaivePort: naiveDefaultPort}); err != nil {
+		t.Fatal(err)
+	}
+	var users []int64
+	for i := range 2 {
+		u, err := m.store.CreateUser(fmt.Sprintf("u%d", i), fmt.Sprintf("uuid-%d", i), fmt.Sprintf("pw-%d", i), fmt.Sprintf("tok-%d", i), 0, 0, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		users = append(users, u.ID)
+	}
+
+	if got := node.sync(); got != "split" {
+		t.Fatalf("first sync: %q, want the whole state", got)
+	}
+	// check folds the rows back into the lane and compares the whole meta — the naive
+	// users included — with what the panel would push whole.
+	node.check("first sync")
+
+	// The passwords ride on the rows, one per naive user, and the skeleton that is hashed
+	// and held stable carries the lane but never a plaintext password — otherwise every
+	// regen would move the hash and force the node a whole re-split.
+	passes := map[int64]string{}
+	for _, r := range node.parts.Rows {
+		if r.NaivePass != "" {
+			passes[r.ID] = r.NaivePass
+		}
+	}
+	if len(passes) != len(users) {
+		t.Fatalf("naive passwords rode on %d rows, want %d: %+v", len(passes), len(users), node.parts.Rows)
+	}
+	if skel := string(node.parts.Held.Skeleton); strings.Contains(skel, passes[users[0]]) {
+		t.Error("a naive password is in the hashed skeleton")
+	}
+
+	// The first sync minted both passwords while it built the split, so they rode to the
+	// node inside it — but the shared inputs the panel diffs against were read before the
+	// mint and still remember them as unset (claimNaive drops the cache, not the snapshot
+	// it compares the next read with; the AmneziaWG claim leaves the same one-time gap).
+	// Drain that catch-up — the node already holds the passwords, so it settles at once —
+	// to leave the inputs remembering what the node has. Only then is a single regen a
+	// single row: without this the diff runs against the stale pre-claim snapshot and
+	// carries every freshly-claimed user, not just the one that moved.
+	node.m.notifyNodes()
+	for i := 0; ; i++ {
+		if got := node.sync(); got == "" {
+			break
+		} else if i > 4 {
+			t.Fatalf("the node never settled after the first claim (last sent %q)", got)
+		}
+	}
+	node.check("settled after the first claim")
+
+	// Regenerating one password touches only that user: the lane is unchanged, so the
+	// change goes as a delta carrying that one row, and the node still assembles the
+	// whole state (check re-folds the new password against the panel's).
+	if err := m.RegenNaivePass(users[0]); err != nil {
+		t.Fatal(err)
+	}
+	// Not expect(): it re-syncs to prove the change settled, and that second sync clears
+	// last.Delta — but the rows the delta carried are the point here. So wake, sync, and
+	// read the delta the node was sent before anything overwrites it, then finish expect's
+	// own checks by hand: the state still assembles, and a second sync has nothing to send.
+	node.m.notifyNodes()
+	if got := node.sync(); got != "delta" {
+		t.Fatalf("a naive password regenerated: the node was sent %q, want a delta", got)
+	}
+	var upserted []int64
+	for _, raw := range node.last.Delta.Upsert {
+		var r nodeapi.UserRow
+		if err := json.Unmarshal(raw, &r); err != nil {
+			t.Fatal(err)
+		}
+		upserted = append(upserted, r.ID)
+	}
+	if !slices.Equal(upserted, []int64{users[0]}) {
+		t.Errorf("the regen carried rows %v, want only %d", upserted, users[0])
+	}
+	node.check("a naive password regenerated")
+	if again := node.sync(); again != "" {
+		t.Fatalf("a naive password regenerated: a second sync was sent %q, want nothing", again)
+	}
+	for _, r := range node.parts.Rows {
+		if r.ID == users[0] && r.NaivePass == passes[users[0]] {
+			t.Error("the regenerated password did not reach the node's row")
+		}
 	}
 }

@@ -167,6 +167,27 @@ func GeneratePassword() (string, error) {
 	return string(out), nil
 }
 
+// ValidProbeSecret reports whether s can be the probe_resistance hidden domain: the
+// empty string (the directive is then not rendered at all) or a single Caddyfile token
+// of letters, digits, dot, underscore and dash. The panel checks an operator's input
+// against this before storing it as a global default, so a bad value is refused where
+// it is typed instead of failing every node's render later.
+func ValidProbeSecret(s string) bool {
+	return s == "" || probeSecretRe.MatchString(s)
+}
+
+// ValidMasqueradeURL reports whether s can be the mirror masquerade URL: the empty
+// string (no mirror — the node serves its own decoy) or an http(s) URL whose host is a
+// real domain or a loopback address. Same reason as ValidProbeSecret: a global default
+// is checked at the keyboard, not on every node at render time.
+func ValidMasqueradeURL(s string) error {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	_, _, err := parseMirrorURL(s)
+	return err
+}
+
 // Validate reports whether the configuration can be rendered into a Caddyfile
 // that means what it says. Every string that lands in the file is checked
 // against the character set that keeps it a single token — the renderer emits

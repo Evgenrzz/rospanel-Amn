@@ -71,7 +71,7 @@ func (s *Store) readSettings() (*model.Settings, error) {
 	var subShowConfigs, statusEn, maintenanceMode, probeDetect, watchdogEnabled int
 	var probeBlock int
 	var routingCfg, subRulesJSON, subDPIJSON string
-	var masterHideFull, masterHideOver, awgEn, hideOffline, subHappCrypt, subTGBind, subTGRebind, subShowClash, tgMailingSwitch int
+	var masterHideFull, masterHideOver, awgEn, naiveEn, hideOffline, subHappCrypt, subTGBind, subTGRebind, subShowClash, tgMailingSwitch int
 	var awgParamsJSON, connPolicyJSON string
 	var walletEn, refFirstOnly, winbackEn, autoUpdateNodes, blacklistEn, planChange int
 	var trafficPacksJSON string
@@ -123,6 +123,7 @@ func (s *Store) readSettings() (*model.Settings, error) {
 		       sub_hide_offline, conn_policy, sub_happ_crypt,
 		       sub_tpl_clash, sub_tpl_singbox, sub_tpl_xray,
 		       awg_enabled, awg_port, awg_private_key, awg_public_key, awg_params, awg_name, awg_dns,
+		       naive_enabled, naive_port, naive_probe_secret, naive_masquerade_url, naive_name,
 		       wallet_enabled, wallet_topup_min, ref_mode, ref_percent, ref_days, ref_first_only,
 		       billing_periods, winback_enabled, winback_after_days, winback_percent, winback_valid_days,
 		       auto_update_cron, auto_update_nodes, auto_update_last_at, auto_update_last,
@@ -180,6 +181,7 @@ func (s *Store) readSettings() (*model.Settings, error) {
 		&hideOffline, &connPolicyJSON, &subHappCrypt,
 		&st.SubTplClash, &st.SubTplSingBox, &st.SubTplXray,
 		&awgEn, &st.AWGPort, &st.AWGPrivateKey, &st.AWGPublicKey, &awgParamsJSON, &st.AWGName, &st.AWGDNS,
+		&naiveEn, &st.NaivePort, &st.NaiveProbeSecret, &st.NaiveMasqueradeURL, &st.NaiveName,
 		&walletEn, &st.WalletTopupMin, &st.RefMode, &st.RefPercent, &st.RefDays, &refFirstOnly,
 		&billingPeriodsJSON, &winbackEn, &st.Winback.AfterDays, &st.Winback.Percent, &st.Winback.ValidDays,
 		&st.AutoUpdateCron, &autoUpdateNodes, &st.AutoUpdateLastAt, &st.AutoUpdateLast,
@@ -211,6 +213,7 @@ func (s *Store) readSettings() (*model.Settings, error) {
 		}
 	}
 	st.AWGEnabled = awgEn != 0
+	st.NaiveEnabled = naiveEn != 0
 	st.WalletEnabled = walletEn != 0
 	if billingPeriodsJSON != "" {
 		_ = json.Unmarshal([]byte(billingPeriodsJSON), &st.BillingPeriods)
@@ -642,6 +645,7 @@ var protocolColumn = map[string]string{
 	"hysteria2": "hysteria_enabled",
 	"reality":   "reality_enabled",
 	"awg":       "awg_enabled",
+	"naive":     "naive_enabled",
 }
 
 // SetProtocolEnabled flips a single protocol's on/off toggle.
@@ -801,6 +805,18 @@ func (s *Store) SetSubDPI(d model.SubDPI) error {
 func (s *Store) SetAWGConfig(port int, dns, name string) error {
 	_, err := s.db.Exec(`UPDATE settings SET awg_port = ?, awg_dns = ?, awg_name = ?,
 		updated_at = unixepoch() WHERE id = 1`, port, dns, name)
+	return err
+}
+
+// SetNaiveConfig persists the master's NaiveProxy defaults: the port, the probe
+// secret and the masquerade URL every node inherits, and the display name (the
+// toggle goes through SetProtocolEnabled("naive")). The probe secret is stored in
+// clear like HysteriaObfs — it is a server-level obfuscation secret shown in the
+// editor and rendered into the Caddyfile, not a per-user credential.
+func (s *Store) SetNaiveConfig(port int, probeSecret, masqueradeURL, name string) error {
+	_, err := s.db.Exec(`UPDATE settings SET naive_port = ?, naive_probe_secret = ?,
+		naive_masquerade_url = ?, naive_name = ?, updated_at = unixepoch() WHERE id = 1`,
+		port, probeSecret, masqueradeURL, name)
 	return err
 }
 

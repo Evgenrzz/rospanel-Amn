@@ -79,6 +79,7 @@ type Node struct {
 	HysteriaEnabled *bool `json:"hysteria_enabled"`
 	RealityEnabled  *bool `json:"reality_enabled"`
 	AWGEnabled      *bool `json:"awg_enabled"`
+	NaiveEnabled    *bool `json:"naive_enabled"`
 
 	DecoyTemplate string `json:"decoy_template"`
 
@@ -176,6 +177,8 @@ type NodeConnections struct {
 	AWGPort            int    `json:"awg_port"`
 	AWGName            string `json:"awg_name"`
 	AWGDNS             string `json:"awg_dns"`
+	NaivePort          int    `json:"naive_port"`
+	NaiveName          string `json:"naive_name"`
 }
 
 // Joined reports whether the node has exchanged its join token for a permanent

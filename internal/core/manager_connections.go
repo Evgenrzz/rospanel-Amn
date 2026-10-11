@@ -73,6 +73,14 @@ type ConnectionsStatus struct {
 	AWGDNS       string          `json:"awg_dns"`
 	AWGRunning   bool            `json:"awg_running"`
 	AWGError     string          `json:"awg_error,omitempty"`
+
+	// NaiveProxy (see internal/naive) is a NODE-ONLY lane: the master's editor shows
+	// the GLOBAL defaults every node inherits — the probe secret and the masquerade
+	// URL — plus the port and display name it round-trips. There is no "running" and
+	// no error here: the master never serves the lane, each node reports its own.
+	NaivePort          int    `json:"naive_port"`
+	NaiveProbeSecret   string `json:"naive_probe_secret"`
+	NaiveMasqueradeURL string `json:"naive_masquerade_url"`
 }
 
 // ConnectionsInfo reports the master's enabled protocols and their connection
@@ -120,6 +128,10 @@ func buildConnectionsStatus(set *model.Settings) *ConnectionsStatus {
 		AWGPublicKey:      set.AWGPublicKey,
 		AWGParams:         set.AWGParams,
 		AWGDNS:            set.AWGDNS,
+
+		NaivePort:          set.NaivePort,
+		NaiveProbeSecret:   set.NaiveProbeSecret,
+		NaiveMasqueradeURL: set.NaiveMasqueradeURL,
 		Protocols: []ConnInfo{
 			{
 				Key:         "vless",
@@ -159,17 +171,28 @@ func buildConnectionsStatus(set *model.Settings) *ConnectionsStatus {
 				DisplayName: set.AWGName,
 				Transport:   "UDP (AmneziaWG)",
 				Security:    "WireGuard + obfuscation",
-				Port:        awgPortLabel(set.AWGPort),
+				Port:        lanePortLabel(set.AWGPort),
 				Note:        "",
 				Enabled:     set.AWGEnabled,
+			},
+			{
+				Key:         "naive",
+				Name:        model.ProtoNaive,
+				DisplayName: set.NaiveName,
+				Transport:   "TCP (HTTP/2 CONNECT)",
+				Security:    "TLS (Chrome fingerprint)",
+				Port:        lanePortLabel(set.NaivePort),
+				Note:        "",
+				Enabled:     set.NaiveEnabled,
 			},
 		},
 	}
 }
 
-// awgPortLabel shows "—" for a tunnel that has never been switched on (no port
-// picked yet), the port otherwise.
-func awgPortLabel(port int) string {
+// lanePortLabel shows "—" for a lane whose port has not been set (never switched
+// on), the port otherwise. Shared by the lanes whose port is optional in the editor —
+// AmneziaWG and NaiveProxy — as distinct from the always-present VLESS/REALITY ones.
+func lanePortLabel(port int) string {
 	if port == 0 {
 		return "—"
 	}
@@ -212,6 +235,7 @@ var connNameKeys = []struct{ key, proto string }{
 	{"reality", model.ProtoReality},
 	{"hysteria2", model.ProtoHysteria},
 	{"awg", model.ProtoAWG},
+	{"naive", model.ProtoNaive},
 }
 
 // validateConnNames trims and checks the custom node names, returning them keyed
@@ -286,6 +310,15 @@ type ConnectionsUpdate struct {
 	AWGPort      int    `json:"awg_port"`
 	AWGDNS       string `json:"awg_dns"`
 	RegenAWGKeys bool   `json:"regen_awg_keys"`
+
+	// NaiveProxy (node-only): the port (0 = keep / default), the GLOBAL probe secret
+	// and masquerade URL every node inherits, and a request to re-mint every user's
+	// password — which kills every naive+secure:// link handed out so far, the point
+	// of asking for it.
+	NaivePort          int    `json:"naive_port"`
+	NaiveProbeSecret   string `json:"naive_probe_secret"`
+	NaiveMasqueradeURL string `json:"naive_masquerade_url"`
+	RegenNaivePass     bool   `json:"regen_naive_pass"`
 }
 
 // resolveObfs decides the Salamander key a save lands on: a freshly minted one when
@@ -470,6 +503,28 @@ func (m *Manager) ApplyConnections(u ConnectionsUpdate) error {
 	}
 	if u.Protocols["awg"] || u.RegenAWGKeys {
 		if err := m.ensureMasterAWGIdentity(set, u.RegenAWGKeys); err != nil {
+			return err
+		}
+	}
+	// NaiveProxy is node-only: the master stores the GLOBAL defaults every node
+	// inherits plus the toggle and port its own editor round-trips. It never binds the
+	// port, so there is no portFree check here — each node checks its own, and the
+	// Caddyfile it renders is the backstop. The port defaults like a node's does.
+	naivePort, naiveProbe, naiveMasq, err := validateNaiveUpdate(u.NaivePort, u.NaiveProbeSecret, u.NaiveMasqueradeURL)
+	if err != nil {
+		return err
+	}
+	if naivePort == 0 {
+		naivePort = set.NaivePort
+	}
+	if u.Protocols["naive"] && naivePort == 0 {
+		naivePort = naiveDefaultPort
+	}
+	if err := m.store.SetNaiveConfig(naivePort, naiveProbe, naiveMasq, connNames["naive"]); err != nil {
+		return err
+	}
+	if u.RegenNaivePass {
+		if _, err := m.RegenAllNaivePass(); err != nil {
 			return err
 		}
 	}

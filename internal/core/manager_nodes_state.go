@@ -42,6 +42,12 @@ func nodeSettings(set *model.Settings, n *model.Node) *model.Settings {
 	ns.AWGPublicKey = n.AWGPublicKey
 	ns.AWGParams = n.AWGParams
 	ns.AWGPort, ns.AWGName, ns.AWGDNS = 0, "", ""
+	// NaiveProxy: node-only, so the node's own on/off decides whether it runs at all.
+	// The port and display name ride in the connections blob below (off ⇒ zero port ⇒
+	// no state); the probe secret and masquerade URL are GLOBAL defaults inherited from
+	// the master through the shallow copy above — a node does not own them.
+	ns.NaiveEnabled = derefBool(n.NaiveEnabled)
+	ns.NaivePort, ns.NaiveName = 0, ""
 	// REALITY donor: the node's own if set, otherwise inherit the panel's (a node
 	// needs some donor for REALITY to work).
 	if n.RealityDest != "" {
@@ -117,6 +123,8 @@ func nodeSettings(set *model.Settings, n *model.Node) *model.Settings {
 		ns.AWGPort = c.AWGPort
 		ns.AWGName = c.AWGName
 		ns.AWGDNS = c.AWGDNS
+		ns.NaivePort = c.NaivePort
+		ns.NaiveName = c.NaiveName
 	}
 	return &ns
 }
@@ -156,7 +164,7 @@ func (m *Manager) buildNodeState(n *model.Node, x *nodeStateInputs) (state *node
 		return nil, false, err
 	}
 	// Who this state lets in is who the node's reports may speak for from now on.
-	m.noteNodeServed(n.ID, b.cfg, b.meta.AWG, x.servedSeq)
+	m.noteNodeServed(n.ID, b.cfg, b.meta.AWG, b.meta.Naive, x.servedSeq)
 	raw, err := json.Marshal(b.cfg)
 	if err != nil {
 		return nil, false, err
@@ -272,6 +280,9 @@ func (m *Manager) generateNodeState(n *model.Node, x *nodeStateInputs, users []m
 	var claimed bool
 	meta.AWG, claimed = m.nodeAWGStateClaimed(n, ns, users, in.access)
 	complete = complete && claimed
+	var naiveClaimed bool
+	meta.Naive, naiveClaimed = m.nodeNaiveStateClaimed(n, ns, users, in.access)
+	complete = complete && naiveClaimed
 	// What the source policy has refused, for this node's own firewall. Read here
 	// rather than pushed on each block so a node that was offline catches up on its
 	// next sync, and so the hash covers it (a lifted block reaches the node too).
@@ -463,7 +474,7 @@ func sameNodeInputs(a, b *nodeInputs) bool {
 	for i := range a.users {
 		x, y := &a.users[i], &b.users[i]
 		if x.ID != y.ID || x.UUID != y.UUID || x.Password != y.Password ||
-			x.WGPrivateKey != y.WGPrivateKey || x.AWGSlot != y.AWGSlot {
+			x.WGPrivateKey != y.WGPrivateKey || x.AWGSlot != y.AWGSlot || x.NaivePass != y.NaivePass {
 			return false
 		}
 	}

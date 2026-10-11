@@ -48,8 +48,11 @@ func TestResetNodeConnectionsRestoresTheFactoryState(t *testing.T) {
 	if st.HysteriaPort != 443 || st.HopStart != 443 || st.RealityPort != 8443 || !st.TLSMin13 {
 		t.Fatalf("transport not reset: %+v", st)
 	}
+	// AmneziaWG and NaiveProxy are the opt-in lanes — node-only, off until an operator
+	// switches them on — so a factory reset leaves them off while the rest come back on.
+	offByDefault := map[string]bool{"awg": true, "naive": true}
 	for _, p := range st.Protocols {
-		want := p.Key != "awg"
+		want := !offByDefault[p.Key]
 		if p.Enabled != want {
 			t.Errorf("protocol %s enabled=%v, want %v", p.Key, p.Enabled, want)
 		}
