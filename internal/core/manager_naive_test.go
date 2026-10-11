@@ -213,3 +213,25 @@ func TestRegenNaivePassLeavesOtherLanesIntact(t *testing.T) {
 		t.Errorf("the bulk regen touched b's other lanes: wg=%q pw=%q", afterB.WGPrivateKey, afterB.Password)
 	}
 }
+
+// The naive lane's TCP port is held against the custom inbounds while the lane is on, so
+// an operator can't put an Xray inbound on 2053 and have the two listeners fight — the
+// collision surfaces as a named rejection at save time, not as a node that won't start.
+// With the lane off the port is free again: nothing listens on it.
+func TestNaivePortIsReserved(t *testing.T) {
+	t.Parallel()
+
+	on := &model.Settings{NaiveEnabled: true, NaivePort: 2053}
+	holder, held := reservedPorts(on).OnTCP(2053)
+	if !held {
+		t.Fatal("the naive port is not reserved while the lane is on, so a custom inbound could claim it")
+	}
+	if holder != "NaiveProxy" {
+		t.Errorf("the naive port is held by %q, want the lane's name so the operator is told what they hit", holder)
+	}
+
+	off := &model.Settings{NaiveEnabled: false, NaivePort: 2053}
+	if _, held := reservedPorts(off).OnTCP(2053); held {
+		t.Error("the naive port stays reserved while the lane is off, so it can never be reused")
+	}
+}
