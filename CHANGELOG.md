@@ -12,6 +12,14 @@
   masquerade defaults on the master. Traffic is accounted from caddy's access log into the
   same report fields Xray fills; the lane is skipped by the Clash and sing-box profiles.
 
+
+### Bug Fixes
+
+* **naive:** read the access-log `user_id` where caddy actually writes it — at the top level
+  of the entry, next to the byte counters, with the nested `request.user_id` kept only as a
+  fallback — so naive traffic reaches the dashboard instead of being silently dropped
+  ([88da17f](https://github.com/Evgenrzz/rospanel-Amn/commit/88da17f5e6c2d27f63eab423b8b1f7cdeb36c08a))
+
 ## [5.0.1](https://github.com/AppsGanin/rospanel/compare/v5.0.0...v5.0.1) (2026-10-09)
 
 
