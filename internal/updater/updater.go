@@ -29,7 +29,7 @@ import (
 
 // Repo is the GitHub "owner/repo" this panel self-updates from, baked into the
 // build. Change it here if the project moves.
-const Repo = "AppsGanin/rospanel"
+const Repo = "Evgenrzz/rospanel-Amn"
 
 // ErrInProgress is an install refused because another is running.
 var ErrInProgress = errors.New("an update is already in progress")

@@ -3157,6 +3157,7 @@ const ru = {
     converter: "Конвертер файлов",
     downloader: "Загрузчик файлов",
     filecloud: "Файловое облако",
+    totoro: "Tonari no Totoro (аниме)",
   },
 
   payField: {

@@ -3160,6 +3160,7 @@ const fa: Dict = {
     converter: "مبدل فایل",
     downloader: "دانلودر فایل",
     filecloud: "فضای ابری فایل",
+    totoro: "Tonari no Totoro (انیمه)",
   },
 
   payField: {

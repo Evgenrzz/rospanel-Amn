@@ -3154,6 +3154,7 @@ const zh: Dict = {
     converter: "文件转换器",
     downloader: "文件下载器",
     filecloud: "文件云盘",
+    totoro: "Tonari no Totoro（动画）",
   },
 
   payField: {

@@ -3063,6 +3063,7 @@ const ar: Dict = {
     converter: "محوّل الملفات",
     downloader: "أداة تنزيل الملفات",
     filecloud: "سحابة الملفات",
+    totoro: "Tonari no Totoro (أنمي)",
   },
 
   payField: {

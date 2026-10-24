@@ -2,7 +2,7 @@
 #
 # RosPanel quick installer.
 #
-#   curl -Ls https://raw.githubusercontent.com/AppsGanin/rospanel/main/install.sh | sudo bash
+#   curl -Ls https://raw.githubusercontent.com/Evgenrzz/rospanel-Amn/main/install.sh | sudo bash
 #
 # Downloads the latest release binary, installs it as a systemd service via
 # `rospanel install`, and prints the one-time first-run credentials. Xray,
@@ -20,8 +20,8 @@
 #
 set -euo pipefail
 
-REPO="AppsGanin/rospanel"
-IMAGE="ghcr.io/appsganin/rospanel"   # GHCR image name is always lowercase
+REPO="Evgenrzz/rospanel-Amn"
+IMAGE="ghcr.io/evgenrzz/rospanel-amn"   # GHCR image name is always lowercase
 VERSION="${ROSPANEL_VERSION:-latest}"
 ASSET=""   # resolved from the host architecture in the preflight checks below
 

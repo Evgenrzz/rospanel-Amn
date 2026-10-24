@@ -23,7 +23,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH \
 
 # 3) Fetch the official Xray-core binary for the target architecture.
 FROM --platform=$BUILDPLATFORM debian:stable-slim AS xray
-ARG XRAY_VERSION=v26.10.10
+ARG XRAY_VERSION=v26.10.21
 ARG TARGETARCH
 # SHA256 of each release zip for XRAY_VERSION (from XTLS's published .dgst files).
 # The download is rejected on mismatch, before it is unpacked and run as root.
