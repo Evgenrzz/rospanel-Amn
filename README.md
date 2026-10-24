@@ -9,7 +9,7 @@
 ![Release](https://img.shields.io/github/v/release/AppsGanin/rospanel?label=release&sort=semver&color=2ea44f)
 ![Downloads](https://img.shields.io/github/downloads/AppsGanin/rospanel/total?label=downloads&color=6f42c1)
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
-![Xray-core](https://img.shields.io/badge/Xray--core-v26.10.10-2b2b2b)
+![Xray-core](https://img.shields.io/badge/Xray--core-v26.10.21-2b2b2b)
 ![React](https://img.shields.io/badge/UI-React%20%2B%20Vite%20%2B%20Tailwind-61DAFB?logo=react&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Linux-555?logo=linux&logoColor=white)
 ![Deploy](https://img.shields.io/badge/deploy-single%20binary%20%7C%20Docker-2496ED?logo=docker&logoColor=white)
@@ -235,7 +235,8 @@ no domain and no DNS**.
 
 **What a scanner sees.** The decoy answers over HTTP/3 too: Hysteria2 serves the same site on UDP
 as on TCP, and the site advertises HTTP/3 the way Caddy does. A fresh install draws its own
-REALITY donor and port. Diagnostics warn about what gives a server away: a self-signed
+REALITY donor and port; on a server with a domain REALITY uses that domain as its SNI and its own
+:443 as the target, so a probe gets the server's real certificate. Diagnostics warn about what gives a server away: a self-signed
 certificate and a domain with words like `vpn` or `proxy` in it — the name lands in the public
 certificate transparency logs.
 
@@ -547,9 +548,15 @@ never risks live access.
 coin: another provider's servers, read from their subscription, **handed to your users** beside
 your own. The source is a link, a `happ://crypt…` link or a pasted list; a link is re-read every
 hour, every server switches on and off on its own, and who gets them is decided by the same
-**access groups** as your own lanes. A subscription can be **relayed through one of your
-servers**: users connect to your VLESS TCP-TLS or REALITY lane, the server carries the traffic on
-to the partner, and speed caps, quotas, device limits and cut-off work as on your own lanes. A
+**access groups** as your own lanes. A subscription can be **relayed through your servers**
+— any of them, each over the lanes you tick: users connect to your VLESS TCP-TLS or REALITY lane
+(one config per server and lane for every partner server), the server carries the traffic on to
+the partner, and speed caps, quotas, device limits and cut-off work as on your own lanes. A relayed
+subscription has **its own routing**: rules send part of the traffic elsewhere (`geoip:ru` directly
+from your server, a site through WARP or a lane), the rest goes to the partner, and your server can
+**reach the partner through WARP or a cascade lane** when it cannot reach it directly. A
+partner's **WireGuard** servers (`.conf` files or `wireguard://` links) are dialled by your server
+only — a config is one device — and reach users as VLESS configs of yours. A
 provider that requires **device binding** would refuse a caller that
 does not identify one, so the panel presents a device: an id derived from the source — the same
 on every read, so their side binds one slot rather than a new one per refresh — plus this build's
@@ -605,6 +612,10 @@ an admin confirms the transfer.
   every period.
 - **Win-back** (off by default) — some days after a paid subscription ends, the user gets a
   personal one-use discount code in the bot, already applied to the next payment.
+- **Exit survey** (off by default) — a day after a paid subscription ends, the bot
+  asks the reason (price, quality, no longer needed, another service, something else in their
+  words); the subscription page asks the same. Answers are in the funnel and the
+  `user.churn_answer` webhook.
 - **In the panel** — balance and history in the user card, who invited whom, promo code usage,
   top referrers, refunds to the balance, a sales funnel. A refund or chargeback made by the
   payment system is picked up by itself: the order leaves revenue and loses what it bought.
@@ -737,6 +748,8 @@ concerned, and a window for maintenance — and can go to every active subscribe
 Each keeps a course of short updates (investigating, identified, monitoring, a closing note), shows on
 the subscription page while it is current or due within three days, and is managed over
 `/v1/incidents` with `incident.*` webhooks. Maintenance can take its servers out of subscriptions for its window.
+Once an entry is over, one button gives its hours back: added to the subscription of everyone whose
+term was running when it began and who may use the servers it names, with a message in the bot.
 
 #### 🧩 Plugins (beta)
 

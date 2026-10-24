@@ -664,6 +664,8 @@ const (
 	WebhookUserReferred    = "user.referred"
 	WebhookReferralReward  = "referral.reward"
 	WebhookPromoWinback    = "promo.winback"
+	// A lapsed user answered why they did not renew (data.reason, data.comment).
+	WebhookUserChurnAnswer = "user.churn_answer"
 	// A code the user entered took effect (data.kind: balance | days | percent | amount).
 	WebhookPromoRedeemed = "promo.redeemed"
 	// The term and the quota moved without a plan: the operator set limits or extended
@@ -739,6 +741,7 @@ var WebhookEventCatalog = []string{
 	WebhookUserReferred,
 	WebhookReferralReward,
 	WebhookPromoWinback,
+	WebhookUserChurnAnswer,
 	WebhookPromoRedeemed,
 	WebhookUserLimitsChanged,
 	WebhookUserTermStarted,
@@ -1286,10 +1289,11 @@ type Settings struct {
 	BillingManualLabel   string `json:"-"`
 
 	// WalletEnabled lets users keep a balance: top it up, pay for plans from it and
-	// have it renew their plan when it runs out. WalletTopupMin is the smallest
-	// top-up, in roubles.
+	// have it renew their plan when it runs out. WalletTopupMin and WalletTopupMax
+	// bound one top-up, in roubles.
 	WalletEnabled  bool `json:"-"`
 	WalletTopupMin int  `json:"-"`
+	WalletTopupMax int  `json:"-"`
 	// RefMode is what a referrer earns when someone they invited pays: RefOff,
 	// RefPercent (RefPercent % of the payment on their balance) or RefDays (RefDays
 	// days on their plan). RefFirstOnly pays only for that person's first payment.
@@ -1301,6 +1305,9 @@ type Settings struct {
 	BillingPeriods []PeriodOffer `json:"-"`
 	// Winback sends a user whose paid term lapsed a personal discount code.
 	Winback WinbackSettings `json:"-"`
+	// ChurnSurvey asks a user whose paid term lapsed why it was not renewed: in the
+	// user bot a day later, and on the subscription page.
+	ChurnSurvey bool `json:"-"`
 	// TrafficPacks are the extra traffic on sale to users with a paid plan that has a
 	// quota; PlanChange lets users switch plans while one is active.
 	TrafficPacks []TrafficPack `json:"-"`
@@ -1401,6 +1408,24 @@ type Settings struct {
 	// ServerPlacement is computed alongside ServerID: this server's placement, so
 	// the subscription can order the servers it spans (sub.Order).
 	ServerPlacement Placement `json:"-"`
+}
+
+// WalletTopupCeiling is the largest top-up an operator may allow, in roubles;
+// WalletTopupMaxDefault is the largest one until the operator sets their own.
+const (
+	WalletTopupCeiling    = 1_000_000
+	WalletTopupMaxDefault = 15_000
+)
+
+// TopupRange is the smallest and largest top-up a user may make, in roubles. A
+// maximum never set (0) is the default one.
+func (s *Settings) TopupRange() (lo, hi int) {
+	lo, hi = max(s.WalletTopupMin, 1), s.WalletTopupMax
+	if hi <= 0 {
+		hi = WalletTopupMaxDefault
+	}
+	hi = min(hi, WalletTopupCeiling)
+	return lo, max(hi, lo)
 }
 
 // WarpRegistered reports whether a WARP account has been provisioned.
@@ -1919,6 +1944,17 @@ func (s *Settings) OwnName() string {
 		}
 	}
 	return ""
+}
+
+// RealityTarget is where the REALITY inbound sends what is not a client. For the
+// server's own domain that is its own :443 — the decoy, with the server's real
+// certificate — dialed on loopback, with no DNS and no trip out; for a donor, the donor.
+func (s *Settings) RealityTarget() string {
+	sni := s.RealitySNI()
+	if own := s.OwnName(); own != "" && strings.EqualFold(sni, own) && s.VLESSPort > 0 {
+		return net.JoinHostPort("127.0.0.1", strconv.Itoa(s.VLESSPort))
+	}
+	return sni + ":443"
 }
 
 // RealitySNI returns the primary (first) donor domain — used as the dialed dest

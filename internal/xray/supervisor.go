@@ -597,18 +597,6 @@ func (s *Supervisor) ValidateConfig(cfg *Config) error {
 	return s.ValidateBytes(data)
 }
 
-// validationTempPath is the sibling file Apply/ApplyRaw validate a pending config
-// against before swapping it into place. It MUST carry the config's own extension
-// (.json): Xray's external config loader rejects any file whose extension it does
-// not recognise ("unsupported config file extension"), and `-format json` does NOT
-// override that check — so a plain config.json.new fails `xray run -test` on Xray
-// 26.10.x even though the config itself is valid. Naming the temp config.new.json
-// keeps the atomic-swap semantics and satisfies the extension check.
-func validationTempPath(configPath string) string {
-	ext := filepath.Ext(configPath)
-	return strings.TrimSuffix(configPath, ext) + ".new" + ext
-}
-
 // Apply writes the config atomically (validating first when possible) and
 // restarts Xray — unless the config it generated is the one already running, in
 // which case it does nothing at all.
@@ -648,15 +636,14 @@ func (s *Supervisor) Apply(cfg *Config) error {
 	if err := os.MkdirAll(filepath.Dir(s.configPath), 0o700); err != nil {
 		return err
 	}
-	tmp := validationTempPath(s.configPath)
+	tmp := s.stagedConfigPath()
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}
 
 	if s.bin != "" {
-		// The temp file carries a .json extension (see validationTempPath) so Xray's
-		// loader accepts it; -format json is kept as belt-and-braces. A timeout keeps
-		// a wedged validation from holding s.mu (and thus blocking all future applies).
+		// A timeout keeps a wedged validation from holding s.mu (and thus blocking
+		// all future applies).
 		// validation under runMu (not mu) — a wedged -test can't block Running().
 		ctx, cancel := context.WithTimeout(context.Background(), validateTimeout)
 		cmd := exec.CommandContext(ctx, s.bin, "run", "-test", "-format", "json", "-c", tmp)
@@ -740,7 +727,7 @@ func (s *Supervisor) ApplyRaw(data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(s.configPath), 0o700); err != nil {
 		return err
 	}
-	tmp := validationTempPath(s.configPath)
+	tmp := s.stagedConfigPath()
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}
@@ -797,13 +784,22 @@ func (s *Supervisor) HasBackup() bool {
 // restoreBackupLocked promotes config.json.bak → config.json and restarts
 // Xray. Caller must hold s.runMu. Validation is skipped (the backup was the
 // last known-good config and was already validated when applied).
+// stagedConfigPath is where a config is written (and validated) before it is
+// renamed over the live one: config.json → config.new.json. The extension has to
+// stay last: since 26.10.21 `xray run` refuses a config file whose extension it
+// doesn't know, "-format json" or not, so a config.json.new failed every -test.
+func (s *Supervisor) stagedConfigPath() string {
+	ext := filepath.Ext(s.configPath)
+	return strings.TrimSuffix(s.configPath, ext) + ".new" + ext
+}
+
 func (s *Supervisor) restoreBackupLocked() error {
 	bak := s.configPath + ".bak"
 	data, err := os.ReadFile(bak)
 	if err != nil {
 		return fmt.Errorf("no backup config found")
 	}
-	tmp := validationTempPath(s.configPath)
+	tmp := s.stagedConfigPath()
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}
@@ -827,7 +823,7 @@ func (s *Supervisor) WriteConfig(cfg *Config) error {
 	if err := os.MkdirAll(filepath.Dir(s.configPath), 0o700); err != nil {
 		return err
 	}
-	tmp := validationTempPath(s.configPath)
+	tmp := s.stagedConfigPath()
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}

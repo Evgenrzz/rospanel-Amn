@@ -24,36 +24,59 @@ func (s Server) relayEntries(u model.User) []relayEntry {
 		if !e.Enabled || !s.allowsExt(e.ID) {
 			continue
 		}
-		switch e.RelayLane {
+		for _, lane := range model.RelayLanesOn(e.RelayVias(), s.Set.ServerID) {
+			if r, ok := s.relayEntry(e, lane, u); ok {
+				out = append(out, r)
+			}
+		}
+	}
+	return out
+}
+
+// relayEntry is e reached through lane on this server, when the lane runs here and is
+// the user's.
+func (s Server) relayEntry(e model.ExtServer, lane string, u model.User) (relayEntry, bool) {
+	{
+		switch lane {
 		case model.LaneVLESS:
 			if !s.Set.VLESSEnabled || !s.allowsBuiltin(model.LaneVLESS) {
-				continue
+				return relayEntry{}, false
 			}
 		case model.LaneReality:
 			if !s.Set.RealityEnabled || s.Set.RealityPublicKey == "" || !s.allowsBuiltin(model.LaneReality) {
-				continue
+				return relayEntry{}, false
 			}
 		default:
-			continue
+			return relayEntry{}, false
 		}
 		route, ok := model.ExtRoute(e.ID)
 		if !ok {
-			continue
+			return relayEntry{}, false
 		}
 		// A UUID that already carries the route cannot reach the relay apart from the
 		// lane itself; the routing leaves such a user out as well.
 		if own, ok := model.UUIDRoute(u.UUID); !ok || own == route {
-			continue
+			return relayEntry{}, false
 		}
 		id, ok := model.RouteUUID(u.UUID, route)
 		if !ok {
-			continue
+			return relayEntry{}, false
 		}
 		ru := u
 		ru.UUID = id
-		out = append(out, relayEntry{name: e.Name, lane: e.RelayLane, user: ru})
+		name := e.Name
+		if len(e.RelayVias()) > 1 {
+			// Through more than one lane of ours: the lane's own label (with this
+			// server's in a multi-server subscription) tells the entries apart, in every
+			// format alike.
+			proto := model.ProtoVLESS
+			if lane == model.LaneReality {
+				proto = model.ProtoReality
+			}
+			name += " · " + s.Set.ProtoLabel(proto)
+		}
+		return relayEntry{name: name, lane: lane, user: ru}, true
 	}
-	return out
 }
 
 // link is the entry as a share link: the lane's link for the routed UUID, named after

@@ -62,12 +62,14 @@ func (rt *Router) getBilling(w http.ResponseWriter, r *http.Request) {
 		"manual_label":  set.BillingManualLabel,
 		"wallet":        set.WalletEnabled,
 		"topup_min":     set.WalletTopupMin,
+		"topup_max":     set.WalletTopupMax,
 		"ref_mode":      set.RefMode,
 		"ref_percent":   set.RefPercent,
 		"ref_days":      set.RefDays,
 		"ref_first":     set.RefFirstOnly,
 		"periods":       periodOffersOrEmpty(set.BillingPeriods),
 		"winback":       set.Winback,
+		"churn_survey":  set.ChurnSurvey,
 		"traffic_packs": packsOrEmpty(set.TrafficPacks),
 		"plan_change":   set.PlanChange,
 		"plans":         plans,
@@ -85,13 +87,15 @@ func (rt *Router) saveBilling(w http.ResponseWriter, r *http.Request) {
 		ManualLabel string `json:"manual_label"`
 		Wallet      *bool  `json:"wallet"`
 		TopupMin    int    `json:"topup_min"`
+		TopupMax    int    `json:"topup_max"`
 		RefMode     string `json:"ref_mode"`
 		RefPercent  int    `json:"ref_percent"`
 		RefDays     int    `json:"ref_days"`
 		RefFirst    *bool  `json:"ref_first"`
 		// Periods replaces the multi-period discounts; left out (null) keeps them.
-		Periods *[]model.PeriodOffer   `json:"periods"`
-		Winback *model.WinbackSettings `json:"winback"` // left out keeps it
+		Periods     *[]model.PeriodOffer   `json:"periods"`
+		Winback     *model.WinbackSettings `json:"winback"`      // left out keeps it
+		ChurnSurvey *bool                  `json:"churn_survey"` // left out keeps it
 		// TrafficPacks replaces the packs on sale; PlanChange lets users switch plans.
 		// Left out keeps them.
 		TrafficPacks *[]model.TrafficPack `json:"traffic_packs"`
@@ -119,6 +123,9 @@ func (rt *Router) saveBilling(w http.ResponseWriter, r *http.Request) {
 	if req.TopupMin != 0 {
 		set.WalletTopupMin = req.TopupMin
 	}
+	if req.TopupMax != 0 {
+		set.WalletTopupMax = req.TopupMax
+	}
 	if req.RefMode != "" {
 		set.RefMode = req.RefMode
 	}
@@ -136,6 +143,9 @@ func (rt *Router) saveBilling(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Winback != nil {
 		set.Winback = *req.Winback
+	}
+	if req.ChurnSurvey != nil {
+		set.ChurnSurvey = *req.ChurnSurvey
 	}
 	if req.TrafficPacks != nil {
 		set.TrafficPacks = *req.TrafficPacks

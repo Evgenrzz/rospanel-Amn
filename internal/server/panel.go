@@ -245,7 +245,7 @@ func (rt *Router) subServers(local *model.Settings, userID int64, clientIP strin
 		// A relayed one rides the server it is relayed through, if that one is here.
 		for i := range ordered {
 			for _, e := range ext {
-				if e.RelayLane != "" && e.RelayServerID == ordered[i].Set.ServerID {
+				if len(model.RelayLanesOn(e.RelayVias(), ordered[i].Set.ServerID)) > 0 {
 					ordered[i].Relays = append(ordered[i].Relays, e)
 				}
 			}
@@ -463,6 +463,8 @@ func (rt *Router) panelMux() http.Handler {
 	canSettingsManage("POST /api/incidents", rt.createIncident)
 	canSettingsManage("POST /api/incidents/{id}", withID(rt.updateIncident))
 	canSettingsManage("POST /api/incidents/{id}/resolve", withID(rt.resolveIncident))
+	// Compensating moves users' terms: it is the users' permission, not the page's.
+	canUsersManage("POST /api/incidents/{id}/compensate", withID(rt.compensateIncident))
 	canSettingsManage("DELETE /api/incidents/{id}", withID(rt.deleteIncident))
 	canSettingsManage("POST /api/incidents/{id}/updates", withID(rt.addIncidentUpdate))
 	canSettingsManage("DELETE /api/incidents/updates/{id}", withID(rt.deleteIncidentUpdate))
@@ -477,8 +479,10 @@ func (rt *Router) panelMux() http.Handler {
 	canServersManage("POST /api/external/{id}/sync", withID(rt.syncExternal))
 	canServersManage("POST /api/external/{id}/enabled", withID(rt.setExternalEnabled))
 	canServersManage("POST /api/external/{id}/relay", withID(rt.setExternalRelay))
+	canServersManage("POST /api/external/{id}/routing", withID(rt.setExternalRouting))
 	canServersManage("POST /api/external/{id}/servers", withID(rt.setExternalServersEnabled))
 	canServersManage("POST /api/external/servers/{id}/enabled", withID(rt.setExternalServerEnabled))
+	canServersManage("POST /api/external/servers/{id}/name", withID(rt.setExternalServerName))
 	canSecurityView("GET /api/settings/abuse", rt.getAbuseSettings)
 	canSecurityManage("POST /api/settings/abuse", rt.saveAbuseSettings)
 	canSecurityManage("POST /api/settings/abuse/refresh", rt.refreshAbuse)

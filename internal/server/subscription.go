@@ -282,6 +282,13 @@ func handleSub(rt *Router, w http.ResponseWriter, r *http.Request, rest string) 
 		}
 		rt.handleSubRotate(w, r, *u, set)
 
+	case "churn":
+		if !subActionAllowed(r) {
+			rt.currentDecoy().ServeHTTP(w, r)
+			return
+		}
+		rt.handleSubChurn(w, r, *u)
+
 	case "devices/unbind":
 		if !subActionAllowed(r) {
 			rt.currentDecoy().ServeHTTP(w, r)
@@ -974,6 +981,26 @@ func (rt *Router) handleSubDeviceUnbind(w http.ResponseWriter, r *http.Request, 
 	writeOK(w)
 }
 
+// handleSubChurn takes the reader's answer to why they did not renew.
+func (rt *Router) handleSubChurn(w http.ResponseWriter, r *http.Request, u model.User) {
+	if r.Method != http.MethodPost {
+		rt.currentDecoy().ServeHTTP(w, r)
+		return
+	}
+	var req struct {
+		Reason  string `json:"reason"`
+		Comment string `json:"comment"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if err := rt.mgr.AnswerChurn(subActorCtx(r, u), u.ID, req.Reason, req.Comment, "page"); err != nil {
+		writeSubErr(w, err, i18n.FromAcceptLanguage(r.Header.Get("Accept-Language")))
+		return
+	}
+	writeOK(w)
+}
+
 // handleSubRotate reissues the user's own subscription link, when the operator allows
 // it, at most once per the interval they set: the old one stops working, and the
 // answer carries the new page's address.
@@ -1344,8 +1371,11 @@ func (rt *Router) buildWallet(b *sub.Billing, u model.User, set *model.Settings,
 				b.RenewShort = true
 			}
 		}
-		b.TopupMin = max(set.WalletTopupMin, 1)
+		b.TopupMin, b.TopupMax = set.TopupRange()
 		b.TopupHint = i18n.T(lang, "sub.topupHint", b.TopupMin)
+		if b.TopupMax < model.WalletTopupCeiling {
+			b.TopupHint = i18n.T(lang, "sub.topupHintRange", b.TopupMin, b.TopupMax)
+		}
 		if w.RefBonusDays > 0 {
 			b.BonusDays = i18n.T(lang, "sub.bonusDays", w.RefBonusDays)
 		}
