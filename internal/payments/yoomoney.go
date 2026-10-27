@@ -48,6 +48,8 @@ func yooMoneyDescriptor() Descriptor {
 				{Value: "AC", Label: "payField.cards"},
 				{Value: "PC", Label: "payField.yoomoneyWalletPay"},
 			}},
+			{Key: ReturnURLKey, Label: "payField.returnUrl", Kind: FieldText, Optional: true, Placeholder: "https://…",
+				Help: "payHelp.returnUrl"},
 		},
 		New: func(cfg Config) Client {
 			return &YooMoney{wallet: cfg.Get("wallet"), secret: cfg.Get("secret"), method: cfg.Get("method")}

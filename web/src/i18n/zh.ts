@@ -3278,6 +3278,7 @@ const zh: Dict = {
   },
 
   payField: {
+    returnUrl: "支付后返回地址",
     starsRate: "一颗星的价格，₽",
     yoomoneySecret: "通知密钥",
     yoomoneyWallet: "钱包号码",
@@ -3314,6 +3315,7 @@ const zh: Dict = {
   },
 
   payHelp: {
+    returnUrl: "支付成功后付款人跳转的地址：网站、订阅页或机器人。留空为默认页面。",
     starsRate: "一颗星值多少卢布；星星账单 = 价格 ÷ 汇率，向上取整。账单由用户机器人开具。",
     yoomoneySecret: "yoomoney.ru/transfer/myservices/http-notification：在该页面填写下方的通知地址并开启通知。",
     yoomoneyWallet: "15–16 位数字，以 4100 开头。",

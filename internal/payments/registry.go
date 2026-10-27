@@ -104,6 +104,11 @@ type Descriptor struct {
 // for every provider.
 const DisplayNameKey = "display_name"
 
+// ReturnURLKey is an optional config key holding where the payer lands after a
+// successful hosted-form payment (the provider's successURL). Empty ⇒ the
+// manager's own fallback chain. Hosted-form providers declare it in Fields.
+const ReturnURLKey = "return_url"
+
 // DisplayName is the operator-set pay-button label, or the default Label if unset.
 func (d Descriptor) DisplayName(cfg Config) string {
 	if n := cfg.Get(DisplayNameKey); n != "" {

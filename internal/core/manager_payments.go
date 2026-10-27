@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/AppsGanin/rospanel/internal/model"
 	"github.com/AppsGanin/rospanel/internal/payments"
 	"github.com/AppsGanin/rospanel/internal/store"
+	"github.com/AppsGanin/rospanel/internal/sub"
 )
 
 // escHTML escapes a dynamic value for the bots' HTML parse mode.
@@ -233,6 +235,44 @@ func (m *Manager) providerClient(key string) (payments.Client, error) {
 	return d.New(p.Config), nil
 }
 
+// providerReturnURL is the operator's "where the payer lands after paying" from
+// the provider card (return_url). Only an http(s) URL with a host is accepted; a
+// typo or an empty value yields "", so the caller's fallback chain applies and a
+// mistyped field can never send a payer to a broken address.
+func (m *Manager) providerReturnURL(provider string) string {
+	p, err := m.store.GetPaymentProvider(provider)
+	if err != nil {
+		return ""
+	}
+	u := strings.TrimSpace(p.Config[payments.ReturnURLKey])
+	if u == "" {
+		return ""
+	}
+	pu, err := url.Parse(u)
+	if err != nil || (pu.Scheme != "https" && pu.Scheme != "http") || pu.Host == "" {
+		return ""
+	}
+	return u
+}
+
+// userReturnURL sends a payer whose flow carries no return address (the bot, a
+// bare API call) back to their Mini App when the install has one, else to their
+// subscription page — anywhere but the generic t.me front page.
+func (m *Manager) userReturnURL(userID int64) string {
+	set, err := m.Settings()
+	if err != nil {
+		return ""
+	}
+	if u := sub.MiniAppURL(set); u != "" {
+		return u
+	}
+	u, err := m.store.GetUser(userID)
+	if err != nil || u == nil {
+		return ""
+	}
+	return sub.URL(set, u.SubToken)
+}
+
 // userBotOn reports whether the user bot runs — what Stars payments need.
 func (m *Manager) userBotOn() bool {
 	set, err := m.Settings()
@@ -434,6 +474,12 @@ func (m *Manager) startProviderOrder(ctx context.Context, lang i18n.Lang, d stor
 	// them, so a plugin opening an order paid with itself is refused, not deadlocked).
 	callCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 20*time.Second)
 	defer cancel()
+	if strings.TrimSpace(returnURL) == "" {
+		returnURL = m.providerReturnURL(provider)
+	}
+	if strings.TrimSpace(returnURL) == "" {
+		returnURL = m.userReturnURL(d.UserID)
+	}
 	if strings.TrimSpace(returnURL) == "" {
 		returnURL = "https://t.me/"
 	}

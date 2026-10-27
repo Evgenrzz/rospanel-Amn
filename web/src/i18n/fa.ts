@@ -3284,6 +3284,7 @@ const fa: Dict = {
   },
 
   payField: {
+    returnUrl: "بازگشت پس از پرداخت",
     starsRate: "قیمت یک ستاره، ₽",
     yoomoneySecret: "رمز اعلان",
     yoomoneyWallet: "شماره‌ی کیف پول",
@@ -3320,6 +3321,7 @@ const fa: Dict = {
   },
 
   payHelp: {
+    returnUrl: "نشانی‌ای که پرداخت‌کننده پس از پرداخت موفق به آن می‌رسد: سایت، صفحه اشتراک یا ربات. خالی — صفحه پیش‌فرض.",
     starsRate: "یک ستاره چند روبل ارزش دارد؛ صورت‌حساب به ستاره = قیمت ÷ نرخ، گرد به بالا. ربات کاربران صورت‌حساب‌ها را صادر می‌کند.",
     yoomoneySecret: "yoomoney.ru/transfer/myservices/http-notification: نشانی اعلان زیر را آنجا وارد کنید و اعلان‌ها را روشن کنید.",
     yoomoneyWallet: "15 تا 16 رقم، با 4100 شروع می‌شود.",

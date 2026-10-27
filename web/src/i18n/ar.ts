@@ -3187,6 +3187,7 @@ const ar: Dict = {
   },
 
   payField: {
+    returnUrl: "الرابط للعودة بعد الدفع",
     starsRate: "سعر النجمة الواحدة، ₽",
     yoomoneySecret: "سر الإشعارات",
     yoomoneyWallet: "رقم المحفظة",
@@ -3223,6 +3224,7 @@ const ar: Dict = {
   },
 
   payHelp: {
+    returnUrl: "العنوان الذي ينتقل إليه الدافع بعد نجاح الدفع: موقعك أو صفحة الاشتراك أو البوت. فارغ — الصفحة الافتراضية.",
     starsRate: "كم روبلًا تساوي النجمة الواحدة؛ الفاتورة بالنجوم = السعر ÷ السعر لكل نجمة، مع التقريب للأعلى. يصدر بوت المستخدمين الفواتير.",
     yoomoneySecret: "yoomoney.ru/transfer/myservices/http-notification: أدخل هناك عنوان الإشعارات أدناه وفعّلها.",
     yoomoneyWallet: "15–16 رقمًا، يبدأ بـ 4100.",

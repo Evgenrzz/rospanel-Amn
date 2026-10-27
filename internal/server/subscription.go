@@ -483,6 +483,9 @@ func (rt *Router) handleSubPay(w http.ResponseWriter, r *http.Request, u model.U
 		Kind    string `json:"kind"`
 		Devices *int   `json:"devices"`
 		Pack    int    `json:"pack"`
+		// ReturnURL is where the payer lands after a hosted-form payment: the page
+		// sends its own address, or the Mini App entrance when paying from Telegram.
+		ReturnURL string `json:"return_url"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -539,12 +542,30 @@ func (rt *Router) handleSubPay(w http.ResponseWriter, r *http.Request, u model.U
 		writeJSON(w, http.StatusOK, map[string]any{"manual": true, "message": msg})
 		return
 	}
-	order, err := rt.mgr.StartPurchase(subActorCtx(r, u), lang, u.ID, p, req.Provider, sub.URL(set, u.SubToken))
+	returnURL := sanitizeReturnURL(req.ReturnURL)
+	if returnURL == "" {
+		returnURL = sub.URL(set, u.SubToken)
+	}
+	order, err := rt.mgr.StartPurchase(subActorCtx(r, u), lang, u.ID, p, req.Provider, returnURL)
 	if err != nil {
 		writeSubErr(w, err, lang)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"pay_url": order.PayURL})
+}
+
+// sanitizeReturnURL keeps only http(s) URLs with a host, so a crafted page payload
+// cannot turn the payer's success button into a javascript: or data: link.
+func sanitizeReturnURL(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return ""
+	}
+	return s
 }
 
 // subPaymentWatchWindow caps how long the page shows "payment processing" for a
@@ -1471,6 +1492,7 @@ func (rt *Router) handleSubWallet(w http.ResponseWriter, r *http.Request, action
 		var req struct {
 			Amount   int    `json:"amount"`
 			Provider string `json:"provider"`
+			ReturnURL string `json:"return_url"`
 		}
 		if !decodeJSON(w, r, &req) {
 			return
@@ -1485,7 +1507,11 @@ func (rt *Router) handleSubWallet(w http.ResponseWriter, r *http.Request, action
 			writeJSON(w, http.StatusOK, map[string]any{"manual": true, "message": msg})
 			return
 		}
-		order, err := rt.mgr.StartTopup(ctx, lang, u.ID, req.Amount, req.Provider, sub.URL(set, u.SubToken))
+		topupReturn := sanitizeReturnURL(req.ReturnURL)
+		if topupReturn == "" {
+			topupReturn = sub.URL(set, u.SubToken)
+		}
+		order, err := rt.mgr.StartTopup(ctx, lang, u.ID, req.Amount, req.Provider, topupReturn)
 		if err != nil {
 			writeSubErr(w, err, lang)
 			return

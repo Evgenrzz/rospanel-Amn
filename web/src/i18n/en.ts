@@ -3284,6 +3284,7 @@ const en: Dict = {
   },
 
   payField: {
+    returnUrl: "Where to return after payment",
     starsRate: "Price of one star, ₽",
     yoomoneySecret: "Notification secret",
     yoomoneyWallet: "Wallet number",
@@ -3320,6 +3321,7 @@ const en: Dict = {
   },
 
   payHelp: {
+    returnUrl: "URL the payer lands on after a successful payment: your site, subscription page or bot. Empty — the default page.",
     starsRate: "How many roubles one star is worth; the invoice in stars = price ÷ rate, rounded up. The user bot issues the invoices.",
     yoomoneySecret: "yoomoney.ru/transfer/myservices/http-notification: enter the notification address below there and switch them on.",
     yoomoneyWallet: "15–16 digits, starts with 4100.",
