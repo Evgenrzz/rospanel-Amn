@@ -224,7 +224,7 @@ the connections editor puts protocols, ports, fingerprints and anti-DPI back to 
 fresh install has and removes the server's custom inbounds (REALITY/AmneziaWG keys and the
 REALITY donor and port stay; the
 master snapshots its config first). The panel hides behind a **secret path**;
-any other path serves a decoy site (12 templates). **Probe detection** notices an IP that
+any other path serves a decoy site (13 templates). **Probe detection** notices an IP that
 scans for the hidden panel — one that requests many distinct paths the decoy doesn't have —
 and records it for the operator to review; the reply never changes, so a scanner still sees
 only the decoy and the masquerade holds. Optionally it also **drops the IP at the firewall**
