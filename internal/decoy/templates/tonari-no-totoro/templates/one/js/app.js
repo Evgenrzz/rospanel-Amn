@@ -81,7 +81,7 @@ async function checkImageExists(url) {
 
 async function findPosterImage(domain) {
     const formats = ['jpeg', 'jpg', 'png', 'webp'];
-    const baseUrl = `https://${domain}/img/poster-player.`;
+    const baseUrl = `/templates/one/img/poster-player.`;
     
     // Предварительная загрузка изображения
     const preloadImage = (url) => {

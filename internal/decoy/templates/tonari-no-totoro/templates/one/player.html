@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, follow">
+<title>Видеоплеер — Мой сосед Тоторо (1988)</title>
+<style>
+html,body{height:100%;margin:0;background:#0b0e14;color:#cfd6e4;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.stage{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.38}
+.inner{position:relative;z-index:2;text-align:center;padding:0 16px}
+.play{width:74px;height:52px;border-radius:12px;background:#e50914;opacity:.9;position:relative;display:inline-block;cursor:default}
+.play::after{content:"";position:absolute;left:28px;top:15px;border-left:22px solid #fff;border-top:11px solid transparent;border-bottom:11px solid transparent}
+.caption{margin-top:14px;font-size:14px}
+.hint{margin-top:6px;font-size:12px;color:#7c8698}
+</style>
+</head>
+<body>
+<div class="stage">
+<img class="poster" src="/templates/one/img/poster.jpg" alt="Постер фильма">
+<div class="inner">
+<span class="play"></span>
+<div class="caption">Плеер №1. Идёт загрузка видео, это может занять до минуты…</div>
+<div class="hint">Видеоряд доступен после проверки соединения. Если ролик не запустился, выберите второй плеер на странице фильма.</div>
+</div>
+</div>
+</body>
+</html>
