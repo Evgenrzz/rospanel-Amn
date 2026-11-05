@@ -42,6 +42,14 @@ var templatesFS embed.FS
 // and the machine underneath tell the same story.
 const ServerName = "Caddy"
 
+// defaultRobots is served at /robots.txt for templates that ship no own file. A
+// live site virtually always answers robots.txt; a host that 404s it is one of the
+// tells the field probe (manual32 «Защита от ТСПУ», блок 3) looks for. Synthesizing
+// it here means every decoy, not only the templates that happen to bundle one,
+// answers like an ordinary static site. Kept deliberately boring: allow everything
+// except a couple of paths no visitor has, the shape most generated robots.txt take.
+const defaultRobots = "User-agent: *\nDisallow: /admin\nDisallow: /cgi-bin\n"
+
 // Available returns the list of bundled template slugs.
 func Available() ([]string, error) {
 	entries, err := fs.ReadDir(templatesFS, "templates")
@@ -136,6 +144,12 @@ func New(template string, st Stamp) (*Handler, error) {
 	}
 	h.index = h.files["index.html"]
 	h.notFound = h.files["404.html"]
+	// A template that bundles its own robots.txt wins; otherwise synthesize one so
+	// the path never 404s (see defaultRobots). Being a real member of h.files gives
+	// it the same validators, 304s and Miss()=false as any shipped asset.
+	if h.files["robots.txt"] == nil {
+		h.files["robots.txt"] = newAsset("robots.txt", []byte(defaultRobots), st)
+	}
 	return h, nil
 }
 
@@ -179,6 +193,11 @@ func stampHTML(body []byte, mark string) []byte {
 // would lock a browser out of the panel.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Server", ServerName)
+	// Ordinary HTTPS sites carry HSTS; its absence is one of the block-3 tells the
+	// field probe checks. The decoy is only ever reached over TLS, so setting it
+	// unconditionally is correct and costs nothing on the plain-HTTP path (which
+	// never reaches this handler).
+	w.Header().Set("Strict-Transport-Security", "max-age=31536000")
 
 	// A maintenance decoy is down for everything, method included. The config it
 	// imitates (nginx `return 503` for the whole server) answers every request the

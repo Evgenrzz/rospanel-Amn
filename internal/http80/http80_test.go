@@ -32,11 +32,12 @@ func TestRedirectImitatesTheDecoysServer(t *testing.T) {
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, r)
 
-			// Caddy answers its automatic HTTP→HTTPS redirect with 308 and no body;
-			// nginx would say 301. The decoy on 443 says it is Caddy.
-			if w.Code != http.StatusPermanentRedirect {
-				t.Errorf("status %d, want %d — the server this imitates uses 308",
-					w.Code, http.StatusPermanentRedirect)
+			// 301, the code ordinary sites (and a configured Caddy site) answer the
+			// HTTP→HTTPS redirect with; the field probe treats Caddy's automatic 308
+			// as a tell.
+			if w.Code != http.StatusMovedPermanently {
+				t.Errorf("status %d, want %d — ordinary sites redirect 80 with 301",
+					w.Code, http.StatusMovedPermanently)
 			}
 			if got := w.Header().Get("Location"); got != tc.want {
 				t.Errorf("Location %q, want %q", got, tc.want)

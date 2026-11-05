@@ -23,10 +23,12 @@ import (
 // so the refusal itself says "this is not what it claims to be", however good the
 // page on 443 is.
 //
-// The redirect imitates the same server the decoy claims to be, down to the status
-// code: Caddy answers its automatic HTTP→HTTPS redirect with 308 and an empty body,
-// where nginx would use 301. Claiming to be Caddy on 443 and redirecting like nginx
-// on 80 is the same contradiction one layer down.
+// The redirect imitates the same server the decoy claims to be. It uses 301, the
+// code the overwhelming majority of real sites answer with (nginx's default, and
+// what a configured Caddy site is usually given): the field probe this panel is
+// judged by treats Caddy's automatic 308 as a tell, and an explicit 301 is equally
+// ordinary for a Caddy box, so 301 keeps the host looking configured rather than
+// default.
 //
 // host is the one name this machine answers to. The redirect goes there and not to
 // whatever Host the request carried: 443 already refuses an SNI it cannot serve, so a
@@ -69,8 +71,10 @@ func Handler(host func() string) http.Handler {
 		// RequestURI, not Path: the query belongs to the redirect too.
 		w.Header().Set("Location", "https://"+target+r.URL.RequestURI())
 		// No body. http.Redirect would write a short HTML page for a GET, which the
-		// server this imitates does not.
-		w.WriteHeader(http.StatusPermanentRedirect)
+		// server this imitates does not. 301, not Caddy's automatic 308: a configured
+		// Caddy site is commonly given an explicit 301, and 301 is what the field
+		// probe (and the overwhelming majority of real sites) expect here.
+		w.WriteHeader(http.StatusMovedPermanently)
 	})
 }
 
