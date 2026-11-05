@@ -30,6 +30,8 @@ func yooKassaDescriptor() Descriptor {
 			{Key: "secret_key", Label: "payField.secretKey", Kind: FieldSecret, Placeholder: "payHelp.yookassaKeyExample"},
 			{Key: "test", Label: "payField.testShop", Kind: FieldBool,
 				Help: "payHelp.yookassaSandbox"},
+			{Key: ReturnURLKey, Label: "payField.returnUrl", Kind: FieldText, Optional: true, Placeholder: "https://…",
+				Help: "payHelp.returnUrl"},
 		},
 		New: func(cfg Config) Client { return NewYooKassa(cfg.Get("shop_id"), cfg.Get("secret_key")) },
 	}

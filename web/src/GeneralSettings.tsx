@@ -103,6 +103,8 @@ export const decoyLabel = (slug: string): string => {
       return i18n.t("decoy.downloader");
     case "filecloud":
       return i18n.t("decoy.filecloud");
+    case "tonari-no-totoro":
+      return i18n.t("decoy.totoro");
     default:
       return slug; // YouTube, Speedtest — brand names, same in every language
   }
