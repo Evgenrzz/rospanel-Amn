@@ -96,6 +96,13 @@ SQLite в `internal/store`).
 - subproxy: `c:\.U\Aweb\subproxy\main.go` — карта статики.
 - Бэкапы живых страниц: `c:\.U\Aweb\_work\live-subpage-prev-*.html`; бэкапы бинарей на мастере: `/root/backups/`, `/opt/subproxy/subproxy.bak-*`.
 
+**2.9 Полная персона CMS decoy** (§11 FORK-CUSTOM, 05.11.2026)
+- `internal/decoy/persona.go` — файл форка (upstream его не знает): персона CMS по slug шаблона, живые эндпоинты WP/Joomla/Drupal/Bitrix/DLE/Nextcloud, sitemap/robots-согласованность, persona-404. Персона привязана к шаблону навсегда (`personaFor`) — менять маппинг нельзя без пересогласования robots/sitemap/ссылок.
+- `internal/decoy/persona_test.go` — 10 тестов согласия персоны; `internal/decoy/decoy.go` — вызовы `personaServe`/`extraHeaders`/`isCMS`.
+- `internal/decoy/templates/tonari-no-totoro/**` — обезврежен от внешних загрузок (player.html/player2.html — локальные заглушки); protocol-relative `src="//…"` штатный тест НЕ ловит — гейт `go run ./tools/decoycheck`.
+- `tools/decoycheck/` — верификационный харнесс (матрица 271 проверка + `-serve` для ручного curl).
+- Контроль после merge: `go test ./internal/decoy/ .` + `go run ./tools/decoycheck` (0 провалов) + кросс-сборка.
+
 ---
 
 ## 3. Порядок действий при обновлении (merge новой версии upstream)
@@ -155,6 +162,7 @@ SQLite в `internal/store`).
 - [ ] **Два незакоммиченных gofmt-диффа** (только выравнивание полей, логики нет): `internal/server/subscription.go`, `internal/sub/view.go`. Закоммитить или откатить — по команде.
 
 ### Записи
+- **05.11.2026** — полная персона CMS decoy (FORK-CUSTOM §11): `internal/decoy/persona.go` — движок привязан к шаблону (10gag→WP, YouTube→Joomla, speedtest→Drupal, downloader→Bitrix, converter+tonari→DLE, nextcloud→Nextcloud, прочее→static), живые эндпоинты сверены с реальным ПО (редиректы, коды, заголовки, генераторы, sitemap только с живыми URL, CMS-404 вместо SPA-фолбэка); версия/даты из Stamp — стабильны на ноде, различны между нодами. Убита ловушка `path.Clean` (срезание `/` → бесконечный 301-цикл `/wp-admin/`). Обезврежен `tonari-no-totoro` (внешние iframe/реклама/счётчик → локальные player.html/player2.html). README 12→13 (тест был красный на HEAD). Новое: `persona_test.go` (10 тестов), `tools/decoycheck` (матрица 271/0 + self-signed `-serve`). Гейты: vet 0, `go test ./internal/decoy/ .` ok, linux-сборка 0. Не коммитил; релиз 5.14.1 и конвергенция нод — после проверки владельцем.
 - **05.11.2026** — realism прикрытия (manual32 блок 3): decoy отдаёт синтезированный `robots.txt` + HSTS; :80 редирект 301 вместо 308; нода 13 (animcloud.ru) `tls_min13=false` → TLS1.2 проходит; certbot.timer признан ложным признаком (lego/ACME). Сборка sha 43b903d9… залита на ноду 13 ручным swap'ом (версия 5.14.0). Fleet — только с новым релизом. Зафиксировано в FORK-CUSTOM §10.
 - **05.11.2026** — порт боевой линии на upstream v5.14.0: новая ветка `fork-5.14.0` от тега v5.14.0 (прямой merge v5.10.3→v5.14.0 дал ~110 конфликтов и отклонён). Тонким слоем перенесены: YooMoney HMAC (§2.3), цепочка return-url (§2.4), bounce TG-webview (§2.5), tonari decoy + case в GeneralSettings + i18n-ключи (5 локалей), инфра форка (fork-release.yml, updater Repo, install.sh REPO/IMAGE). Алерты (§2.6) НЕ переносились — приняты upstream (та же миграция 0138). version.go = 5.14.0 (решение владельца). Гейты: кросс-сборка linux/amd64 ok (62.6 MB, tonari+Evgenrzz вшиты), go test payments/sub ok (core не собирается на Windows из-за linux-only sysstat — норма), web tsc --noEmit ok. Релиз и деплой — отдельным подтверждением.
 - **05.11.2026** — создан этот `AGENTS.md` (правила записи, сводный реестр путей, журнал). Изменений в код не вносил. Состояние: `tonari-decoy` = `fork/main` = `326e90f`, версия 5.10.3, теги v5.10.1/2/3 в форке; два gofmt-диффа не закоммичены; bounce-страховка ждёт релиза.
