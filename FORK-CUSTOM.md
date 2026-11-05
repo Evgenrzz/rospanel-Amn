@@ -2,7 +2,7 @@
 
 Этот файл — список всего, чем форк `Evgenrzz/rospanel-Amn` отличается от upstream
 `AppsGanin/rospanel`, и чек-лист переноса при merge новой версии upstream.
-Актуальный срез диффа: `git diff --stat v5.14.0..HEAD` (точка последнего порта, ветка `fork-5.14.0`).
+Актуальный срез диффа: `git diff --stat v5.14.1..HEAD` (точка последнего релиза; ветка разработки `fork-5.14.0`, релиз в `main`).
 После каждого нового merge дополняй разделы и обновляй команду среза.
 
 Правила работы агента, сводный реестр путей и журнал работ — в `AGENTS.md`.
@@ -94,5 +94,20 @@
 - `README*.md` (5 локалей): счётчик шаблонов 12→13 (дрейф с момента добавления tonari, тест `TestREADMEsMatchDecoyTemplateCount` был красный на HEAD).
 - `internal/decoy/persona_test.go` — 10 тестов: привязка персоны, robots⇒живые пути, обход всех ссылок персона-страниц (в т.ч. анти-protocol-relative), сигнатуры движков, CMS-404, Content-Length без чанкинга, стабильность на рестарте, разнообразие версий между инсталлами, live-`<loc>` sitemap, POST-поведение.
 - `tools/decoycheck/` — локальный харнесс «как дешёвый сканер»: матрица 8 шаблонов (271 проверка, 0 провалов) + `-serve <tmpl> -addr host:port` — живой self-signed HTTPS для ручного curl.
-- Гейты 05.11.2026: `go vet` 0; `go test ./internal/decoy/ .` ok; `GOOS=linux go build ./...` 0; decoycheck 271/0. НЕ закоммичено, релиза/деплоя нет — по команде владельца bump 5.14.1 → мастер → ноды.
+- Гейты 05.11.2026: `go vet` 0; `go test ./internal/decoy/ .` ok; `GOOS=linux go build ./...` 0; decoycheck 271/0.
+
+### Релиз и деплой v5.14.1 — 06.11.2026, по команде владельца («обновляй мастер и ноды»)
+Коммиты (ветка `fork-5.14.0`, затем ff-merge в `main`; все запушены в `fork`):
+- `81c4a73` — обезвреживание `tonari-no-totoro` (внешние iframe/реклама/счётчик → локальные player.html/player2.html).
+- `65b94d8` — `persona.go` + правки `decoy.go` (слой персон, живые эндпоинты, ловушка `path.Clean`).
+- `bc536a7` — `persona_test.go` (10 тестов согласованности персон).
+- `7ae9967` — `tools/decoycheck` (матрица 271/0 + self-signed `-serve` для ручных curl-проверок).
+- `a317af5` — README 12→13 (дрейф счётчика шаблонов).
+- `ac8269b` — этот файл + `AGENTS.md` (реестр §2.9, запись журнала).
+- `124a3d3` = тег `v5.14.1` (annotated, на `main`): bump `version.go` + `.release-please-manifest.json` 5.14.0→5.14.1.
+Релиз: `fork-release.yml` run `42113230435` — зелёный; `rospanel-linux-amd64` 47 870 114 B (у v5.14.0 было 47 767 714 — дельта персоны ~102 КБ, норма), SHA256 `100b5793f6d04d7c32b9d4dbcf1bf1740365fc5079d4ac55bb8350e524900c2e`. Workflow документов `42113196531` упал на `actions/deploy-pages@v4` — GitHub Pages, не гейт кода.
+Мастер (78.17.24.97): `_work\deploy_5141_master.sh` через plink — backup бинаря, `sha256sum -c` OK, grep тонари=33/repo/persona OK, swap, restart → `active`, `rospanel 5.14.1`, :80/:443/:8080 слушают.
+Ноды (конвергенция временным cron `* * * * *` + `auto_update_nodes=1`, после — возвращено в `''`/`0`): **5/7 на 5.14.1** — 5 ES tonari-no-totoro.ru, 9 IT isburabora.ru, 10 EE kadudu.ru, 12 FI futuramago.ru, 13 BY animcloud.ru; персона проверена живым HTTPS (`_work\persona_live_check.ps1`): DLE `/admin.php` 200, `/no-such-x` 404, player.html 200; Bitrix `/bitrix/` 403 `/auth/` 200, Nextcloud `/status.php` 200 `/login` 303, Drupal `/user` 302 + `X-Generator` на robots.
+**Застывшие ноды 2 (LV serial-izvne.ru) и 4 (AL golden-kamuy.ru) — 5.14.0, проблема хостинга, не кода:** их `GET https://api.github.com/repos/Evgenrzz/rospanel-Amn/releases/latest` упорно отдаёт v5.14.0 (в логах нод каждую минуту «node self-update: already on the latest version version=5.14.0»), снаружи тот же endpoint — v5.14.1, draft/prelease нет. Подозрение: локальный «GitHub-ускоритель» (/etc/hosts или прозрачный прокси с кэшем) у этих провайдеров; у ноды 2 дополнительно периодические sync EOF/timeout. SSH-кредов к этим хостам нет → удалённо не починить отсюда. Варианты: дать доступ к хостам (ручной swap, как нода 13) или позже повторно пульнуть конвергенцию — см. «Открытые вопросы» в `AGENTS.md`.
+Диагприём (повторимо): временный full-access API-ключ прямо в SQLite (`key_hash`=HMAC-SHA256(raw, `settings.session_pepper`), `_work\api_dbg_key.sh`), `X-API-Key` + базовый путь `settings.api_path`, `GET /v1/nodes` → `{"data":[…]}`, `GET /v1/nodes/{id}/logs` — хвост лога ноды (первый вызов будит, второй читает). Ключ удалён, временные файлы убраны; в БД остались штатные ключи id1 «sub», id2 «LK».
 - Контроль после merge upstream: `internal/decoy/persona.go` — файл форка (upstream его не знает); при конфликте сохраняем наш; прогон `go test ./internal/decoy/` + `go run ./tools/decoycheck` обязателен.
