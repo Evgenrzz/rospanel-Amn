@@ -43,15 +43,31 @@ var templatesFS embed.FS
 // and the machine underneath tell the same story.
 const ServerName = "Caddy"
 
-// robotsBody renders the robots.txt served for templates that ship no own file. A
-// live site virtually always answers robots.txt; a host that 404s it is one of the
-// tells the field probe (manual32 «Защита от ТСПУ», блок 3) looks for. The body
-// carries the Host directive naming the domain it was asked for, the way a
-// single-site host's robots.txt does, so the file agrees with the name in the
-// certificate and in the redirect beside it. Kept deliberately boring otherwise:
-// allow everything except a couple of paths no visitor has.
-func robotsBody(host string) string {
-	return "User-agent: *\nDisallow: /admin\nDisallow: /cgi-bin\nHost: " + host + "\n"
+// robotsEngines are the robots.txt bodies the decoy can present, one per CMS the
+// covered box might plausibly run. A live fleet does not ship one identical
+// robots.txt everywhere — a body-hash sweep across installs would line them all
+// up — so each install picks one variant from its stamp (see New) and keeps it
+// forever, the way a real site keeps the robots.txt its CMS generated. %HOST% is
+// replaced with the domain the file is asked for, so the Host directive (and any
+// Sitemap) agrees with the certificate and the :80 redirect beside it.
+var robotsEngines = []string{
+	// WordPress
+	"User-agent: *\nDisallow: /wp-admin/\nDisallow: /wp-includes/\nDisallow: /xmlrpc.php\nAllow: /wp-admin/admin-ajax.php\n\nSitemap: https://%HOST%/sitemap.xml\nHost: %HOST%\n",
+	// DataLife Engine
+	"User-agent: *\nDisallow: /admin.php\nDisallow: /engine/\nDisallow: /statistics.html\nDisallow: /index.php?do=\nDisallow: /*?newsid=\n\nSitemap: https://%HOST%/sitemap.xml\nHost: %HOST%\n",
+	// Joomla
+	"User-agent: *\nDisallow: /administrator/\nDisallow: /cache/\nDisallow: /components/\nDisallow: /modules/\nDisallow: /plugins/\nDisallow: /index.php?option=\nHost: %HOST%\n",
+	// Drupal
+	"User-agent: *\nDisallow: /core/\nDisallow: /misc/\nDisallow: /modules/\nDisallow: /profiles/\nDisallow: /themes/\nDisallow: /user/\nDisallow: /search/\nHost: %HOST%\n",
+	// 1C-Bitrix
+	"User-agent: *\nDisallow: /bitrix/\nDisallow: /upload/\nDisallow: /auth/\nDisallow: /personal/\nDisallow: /*?bx=\nHost: %HOST%\n",
+	// plain static site
+	"User-agent: *\nDisallow: /admin\nDisallow: /cgi-bin\nHost: %HOST%\n",
+}
+
+// robotsBody renders one engine's robots.txt for the given host.
+func robotsBody(engine int, host string) string {
+	return strings.ReplaceAll(robotsEngines[engine%len(robotsEngines)], "%HOST%", host)
 }
 
 // hostOf is the request's host without any port, for the robots.txt Host directive.
@@ -118,6 +134,9 @@ type Handler struct {
 	index    *asset
 	notFound *asset // the template's own 404.html, when it ships one
 	down     bool   // maintenance template: every request answers 503 with the index page
+	// robotsEngine is which CMS's robots.txt this install synthesizes, chosen from
+	// the stamp so it is stable per install and varies across the fleet.
+	robotsEngine int
 }
 
 // maintenanceTemplates are slugs whose front page advertises the site as
@@ -139,7 +158,11 @@ func New(template string, st Stamp) (*Handler, error) {
 		return nil, fmt.Errorf("decoy template %q missing index.html: %w", template, err)
 	}
 
-	h := &Handler{files: map[string]*asset{}, down: maintenanceTemplates[template]}
+	h := &Handler{
+		files:        map[string]*asset{},
+		down:         maintenanceTemplates[template],
+		robotsEngine: int(st.u64("robots-engine") % uint64(len(robotsEngines))),
+	}
 	err = fs.WalkDir(sub, ".", func(name string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -250,7 +273,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // robotsAsset builds the synthesized robots.txt for one host, with the same
 // validators a shipped asset gets so conditional requests and ranges behave.
 func (h *Handler) robotsAsset(host string) *asset {
-	body := []byte(robotsBody(host))
+	body := []byte(robotsBody(h.robotsEngine, host))
 	mod := h.index.modTime
 	return &asset{
 		name:    "robots.txt",
