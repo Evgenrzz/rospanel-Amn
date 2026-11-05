@@ -76,7 +76,7 @@
 - Релиз (тег v5.14.0 в форке) и деплой мастера/нод — отдельным подтверждением владельца.
 
 ## 10. Реализм прикрытия нод (manual32 «Защита от ТСПУ», блок 3) — 05.11.2026
-- `internal/decoy/decoy.go`: синтез `robots.txt` (const `defaultRobots`), когда шаблон не ship'ит свой — путь больше не 404 и не считается miss; заголовок `Strict-Transport-Security: max-age=31536000` на всех ответах decoy.
+- `internal/decoy/decoy.go`: синтез `robots.txt` (robotsBody + robotsAsset, `Host:` от домена запроса), когда шаблон не ship'ит свой — путь не 404 и не считается miss; заголовок `Strict-Transport-Security: max-age=31536000` на всех ответах decoy.
 - `internal/http80/http80.go`: редирект с :80 теперь **301** (`StatusMovedPermanently`) вместо 308; тест `http80_test.go` обновлён. Обоснование: полевой проб считает 308 признаком, а явно сконфигурированный Caddy обычно отдаёт 301.
 - TLS 1.2: не код, а настройка `tls_min13` (generate.go: minTLS=1.2 по умолчанию, 1.3 только при tls_min13). На ноде 13 выставлено `tls_min13=false` → рукопожатие TLSv1.2 проходит.
 - `certbot.timer` из блока 3 — **ложный признак для RosPanel**: продление сертификата идёт своим lego/ACME через общий :80 (`http80` + `tlsmgr.ServeHTTP01`), certbot не ставим (конфликт за :80).

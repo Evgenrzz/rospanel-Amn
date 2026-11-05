@@ -19,6 +19,7 @@ import (
 	"io/fs"
 	"math/big"
 	"mime"
+	"net"
 	"net/http"
 	"path"
 	"strconv"
@@ -42,13 +43,24 @@ var templatesFS embed.FS
 // and the machine underneath tell the same story.
 const ServerName = "Caddy"
 
-// defaultRobots is served at /robots.txt for templates that ship no own file. A
+// robotsBody renders the robots.txt served for templates that ship no own file. A
 // live site virtually always answers robots.txt; a host that 404s it is one of the
-// tells the field probe (manual32 «Защита от ТСПУ», блок 3) looks for. Synthesizing
-// it here means every decoy, not only the templates that happen to bundle one,
-// answers like an ordinary static site. Kept deliberately boring: allow everything
-// except a couple of paths no visitor has, the shape most generated robots.txt take.
-const defaultRobots = "User-agent: *\nDisallow: /admin\nDisallow: /cgi-bin\n"
+// tells the field probe (manual32 «Защита от ТСПУ», блок 3) looks for. The body
+// carries the Host directive naming the domain it was asked for, the way a
+// single-site host's robots.txt does, so the file agrees with the name in the
+// certificate and in the redirect beside it. Kept deliberately boring otherwise:
+// allow everything except a couple of paths no visitor has.
+func robotsBody(host string) string {
+	return "User-agent: *\nDisallow: /admin\nDisallow: /cgi-bin\nHost: " + host + "\n"
+}
+
+// hostOf is the request's host without any port, for the robots.txt Host directive.
+func hostOf(r *http.Request) string {
+	if h, _, err := net.SplitHostPort(r.Host); err == nil {
+		return h
+	}
+	return r.Host
+}
 
 // Available returns the list of bundled template slugs.
 func Available() ([]string, error) {
@@ -144,12 +156,6 @@ func New(template string, st Stamp) (*Handler, error) {
 	}
 	h.index = h.files["index.html"]
 	h.notFound = h.files["404.html"]
-	// A template that bundles its own robots.txt wins; otherwise synthesize one so
-	// the path never 404s (see defaultRobots). Being a real member of h.files gives
-	// it the same validators, 304s and Miss()=false as any shipped asset.
-	if h.files["robots.txt"] == nil {
-		h.files["robots.txt"] = newAsset("robots.txt", []byte(defaultRobots), st)
-	}
 	return h, nil
 }
 
@@ -223,12 +229,36 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = "index.html"
 	}
+	// robots.txt: a template that bundles its own wins; otherwise synthesize one
+	// naming the host it was asked for (see robotsBody), so the path never 404s.
+	if name == "robots.txt" {
+		a, ok := h.files[name]
+		if !ok {
+			a = h.robotsAsset(hostOf(r))
+		}
+		h.serve(w, r, a, http.StatusOK)
+		return
+	}
 	a, ok := h.files[name]
 	if !ok {
 		h.serveMiss(w, r, name)
 		return
 	}
 	h.serve(w, r, a, http.StatusOK)
+}
+
+// robotsAsset builds the synthesized robots.txt for one host, with the same
+// validators a shipped asset gets so conditional requests and ranges behave.
+func (h *Handler) robotsAsset(host string) *asset {
+	body := []byte(robotsBody(host))
+	mod := h.index.modTime
+	return &asset{
+		name:    "robots.txt",
+		body:    body,
+		ct:      "text/plain; charset=utf-8",
+		modTime: mod,
+		etag:    fmt.Sprintf("%q", strconv.FormatInt(mod.Unix(), 36)+strconv.FormatInt(int64(len(body)), 16)),
+	}
 }
 
 // Miss reports whether urlPath would be served as a genuine "not found" (a 404) rather
@@ -248,6 +278,9 @@ func (h *Handler) Miss(urlPath string) bool {
 	}
 	if _, ok := h.files[name]; ok {
 		return false // a real page or asset the template ships
+	}
+	if name == "robots.txt" {
+		return false // synthesized on the fly, never a 404
 	}
 	return h.notFound != nil || path.Ext(name) != ""
 }
