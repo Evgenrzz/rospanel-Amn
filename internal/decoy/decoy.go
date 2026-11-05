@@ -137,6 +137,10 @@ type Handler struct {
 	// robotsEngine is which CMS's robots.txt this install synthesizes, chosen from
 	// the stamp so it is stable per install and varies across the fleet.
 	robotsEngine int
+	// favicon is the asset answered at /favicon.ico, the path browsers and probes
+	// ask for regardless of what the templates' <link rel=icon> points at. Aliased
+	// to the template's own icon so the root path never 404s.
+	favicon *asset
 }
 
 // maintenanceTemplates are slugs whose front page advertises the site as
@@ -179,7 +183,54 @@ func New(template string, st Stamp) (*Handler, error) {
 	}
 	h.index = h.files["index.html"]
 	h.notFound = h.files["404.html"]
+	h.favicon = pickFavicon(h.files)
+	if h.favicon == nil {
+		// A template that ships no icon file at all (nextcloud) still must answer
+		// /favicon.ico: a transparent 1x1 ICO, the smallest body a probe accepts.
+		h.favicon = newAsset("favicon.ico", minimalICO, st)
+	}
 	return h, nil
+}
+
+// minimalICO is a 1x1 transparent 32bpp .ico: ICONDIR + one ICONDIRENTRY + a
+// BITMAPINFOHEADER + one XOR pixel + the AND mask row, 70 bytes.
+var minimalICO = []byte{
+	0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
+	0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x20, 0x00, 0x30, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00,
+	0x28, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x20, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00,
+}
+
+// pickFavicon chooses the asset answered at /favicon.ico: the template's own icon,
+// preferring a real .ico at the root, then any .ico, then a favicon png/svg. A site
+// whose icon only lives under a deep path still answers the root path browsers and
+// probes request first.
+func pickFavicon(files map[string]*asset) *asset {
+	for _, want := range []string{"favicon.ico"} {
+		if a, ok := files[want]; ok {
+			return a
+		}
+	}
+	var ico, png *asset
+	for name, a := range files {
+		switch {
+		case strings.HasSuffix(name, "/favicon.ico") || strings.HasSuffix(name, ".ico"):
+			if ico == nil {
+				ico = a
+			}
+		case strings.Contains(name, "favicon") && (strings.HasSuffix(name, ".png") || strings.HasSuffix(name, ".svg")):
+			if png == nil {
+				png = a
+			}
+		}
+	}
+	if ico != nil {
+		return ico
+	}
+	return png
 }
 
 // newAsset stamps one file and derives its validators. Only HTML carries the
@@ -262,6 +313,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.serve(w, r, a, http.StatusOK)
 		return
 	}
+	// /favicon.ico: browsers and probes ask the root path even when the template's
+	// <link rel=icon> points deeper; alias the template's own icon so it never 404s.
+	if name == "favicon.ico" {
+		a, ok := h.files[name]
+		if !ok {
+			a = h.favicon
+		}
+		if a != nil {
+			h.serve(w, r, a, http.StatusOK)
+			return
+		}
+	}
 	a, ok := h.files[name]
 	if !ok {
 		h.serveMiss(w, r, name)
@@ -304,6 +367,9 @@ func (h *Handler) Miss(urlPath string) bool {
 	}
 	if name == "robots.txt" {
 		return false // synthesized on the fly, never a 404
+	}
+	if name == "favicon.ico" && h.favicon != nil {
+		return false // aliased to the template's icon, never a 404
 	}
 	return h.notFound != nil || path.Ext(name) != ""
 }
