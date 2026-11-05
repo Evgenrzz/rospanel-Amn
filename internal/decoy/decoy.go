@@ -43,34 +43,8 @@ var templatesFS embed.FS
 // and the machine underneath tell the same story.
 const ServerName = "Caddy"
 
-// robotsEngines are the robots.txt bodies the decoy can present, one per CMS the
-// covered box might plausibly run. A live fleet does not ship one identical
-// robots.txt everywhere — a body-hash sweep across installs would line them all
-// up — so each install picks one variant from its stamp (see New) and keeps it
-// forever, the way a real site keeps the robots.txt its CMS generated. %HOST% is
-// replaced with the domain the file is asked for, so the Host directive (and any
-// Sitemap) agrees with the certificate and the :80 redirect beside it.
-var robotsEngines = []string{
-	// WordPress
-	"User-agent: *\nDisallow: /wp-admin/\nDisallow: /wp-includes/\nDisallow: /xmlrpc.php\nAllow: /wp-admin/admin-ajax.php\n\nSitemap: https://%HOST%/sitemap.xml\nHost: %HOST%\n",
-	// DataLife Engine
-	"User-agent: *\nDisallow: /admin.php\nDisallow: /engine/\nDisallow: /statistics.html\nDisallow: /index.php?do=\nDisallow: /*?newsid=\n\nSitemap: https://%HOST%/sitemap.xml\nHost: %HOST%\n",
-	// Joomla
-	"User-agent: *\nDisallow: /administrator/\nDisallow: /cache/\nDisallow: /components/\nDisallow: /modules/\nDisallow: /plugins/\nDisallow: /index.php?option=\nHost: %HOST%\n",
-	// Drupal
-	"User-agent: *\nDisallow: /core/\nDisallow: /misc/\nDisallow: /modules/\nDisallow: /profiles/\nDisallow: /themes/\nDisallow: /user/\nDisallow: /search/\nHost: %HOST%\n",
-	// 1C-Bitrix
-	"User-agent: *\nDisallow: /bitrix/\nDisallow: /upload/\nDisallow: /auth/\nDisallow: /personal/\nDisallow: /*?bx=\nHost: %HOST%\n",
-	// plain static site
-	"User-agent: *\nDisallow: /admin\nDisallow: /cgi-bin\nHost: %HOST%\n",
-}
-
-// robotsBody renders one engine's robots.txt for the given host.
-func robotsBody(engine int, host string) string {
-	return strings.ReplaceAll(robotsEngines[engine%len(robotsEngines)], "%HOST%", host)
-}
-
-// hostOf is the request's host without any port, for the robots.txt Host directive.
+// hostOf is the request's host without any port, for the robots.txt Host directive
+// and the absolute URLs the persona emits.
 func hostOf(r *http.Request) string {
 	if h, _, err := net.SplitHostPort(r.Host); err == nil {
 		return h
@@ -134,9 +108,13 @@ type Handler struct {
 	index    *asset
 	notFound *asset // the template's own 404.html, when it ships one
 	down     bool   // maintenance template: every request answers 503 with the index page
-	// robotsEngine is which CMS's robots.txt this install synthesizes, chosen from
-	// the stamp so it is stable per install and varies across the fleet.
-	robotsEngine int
+	st       Stamp  // this install's entropy, kept so the persona can re-derive tokens
+	// persona is the CMS this box presents as, tied to the template slug (see personaFor).
+	// It drives robots.txt, the sitemap, the admin/feed/xmlrpc endpoints, the generator
+	// tag and the not-found behaviour so the whole surface tells one story.
+	persona  personaID
+	ver      string // engine version, fixed per install from the stamp
+	siteName string // the template's own page title, reused in feeds and metadata
 	// favicon is the asset answered at /favicon.ico, the path browsers and probes
 	// ask for regardless of what the templates' <link rel=icon> points at. Aliased
 	// to the template's own icon so the root path never 404s.
@@ -163,10 +141,20 @@ func New(template string, st Stamp) (*Handler, error) {
 	}
 
 	h := &Handler{
-		files:        map[string]*asset{},
-		down:         maintenanceTemplates[template],
-		robotsEngine: int(st.u64("robots-engine") % uint64(len(robotsEngines))),
+		files:   map[string]*asset{},
+		down:    maintenanceTemplates[template],
+		st:      st,
+		persona: personaFor(template),
 	}
+	h.ver = resolveVer(h.persona, st)
+	if raw, err := fs.ReadFile(sub, "index.html"); err == nil {
+		h.siteName = extractTitle(raw)
+	}
+	// The persona's head markers are injected into every page before the asset's
+	// validators are derived, so the ETag and Content-Length describe the bytes that
+	// actually go out.
+	head := h.headSnippet()
+
 	err = fs.WalkDir(sub, ".", func(name string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -174,6 +162,9 @@ func New(template string, st Stamp) (*Handler, error) {
 		body, err := fs.ReadFile(sub, name)
 		if err != nil {
 			return err
+		}
+		if head != "" && strings.HasSuffix(name, ".html") {
+			body = injectHead(body, head)
 		}
 		h.files[name] = newAsset(name, body, st)
 		return nil
@@ -288,6 +279,24 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	name := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
+	if name == "" {
+		name = "index.html"
+	}
+
+	// The persona owns its CMS surface outright — the admin endpoints, feeds,
+	// sitemap, xmlrpc, directory blocks — and decides its own method handling (a POST
+	// belongs to wp-login/xmlrpc/wp-cron, not a blanket 405). It runs before the
+	// file-server method gate below so those dynamic routes stay reachable.
+	if h.personaServe(w, r, name) {
+		return
+	}
+
+	// Headers the persona leaks onto the pages it does not serve itself — most
+	// importantly the static front page, which has to carry the same generator and
+	// api.w.org / X-Generator signals as the rest of the surface it advertises.
+	h.extraHeaders(w, r, name)
+
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		// A static host has nothing to POST to, and OPTIONS isn't something a file
 		// server implements either — nginx and Caddy both answer 405. Serving the full
@@ -299,12 +308,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
-	if name == "" {
-		name = "index.html"
-	}
 	// robots.txt: a template that bundles its own wins; otherwise synthesize one
-	// naming the host it was asked for (see robotsBody), so the path never 404s.
+	// naming the host it was asked for, so the path never 404s and it never promises
+	// a link the persona does not answer.
 	if name == "robots.txt" {
 		a, ok := h.files[name]
 		if !ok {
@@ -336,7 +342,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // robotsAsset builds the synthesized robots.txt for one host, with the same
 // validators a shipped asset gets so conditional requests and ranges behave.
 func (h *Handler) robotsAsset(host string) *asset {
-	body := []byte(robotsBody(h.robotsEngine, host))
+	body := []byte(h.robotsText(host))
 	mod := h.index.modTime
 	return &asset{
 		name:    "robots.txt",
@@ -371,7 +377,17 @@ func (h *Handler) Miss(urlPath string) bool {
 	if name == "favicon.ico" && h.favicon != nil {
 		return false // aliased to the template's icon, never a 404
 	}
-	return h.notFound != nil || path.Ext(name) != ""
+	if h.personaOwns(name) {
+		return false // the persona answers it: sitemap, admin endpoints, feeds, dir blocks
+	}
+	// A CMS box 404s an unknown path — including an extensionless one — exactly as a
+	// real WordPress/Drupal site does; that is the manual's own `notfound=404` check.
+	// A classic template with its own 404 page 404s too. Only a genuine single-page
+	// app keeps the `try_files /index.html` fallback, and there only an asset miss is.
+	if h.notFound != nil || h.isCMS() {
+		return true
+	}
+	return path.Ext(name) != ""
 }
 
 // serveMiss answers a path the template doesn't have.
@@ -381,6 +397,13 @@ func (h *Handler) serveMiss(w http.ResponseWriter, r *http.Request, name string)
 	// carrying that page.
 	case h.notFound != nil:
 		h.serve(w, r, h.notFound, http.StatusNotFound)
+
+	// A CMS box does not fall back to its index for a guessed path the way an SPA
+	// does — it answers 404, with its own not-found page. Serving the front page
+	// under 200 here would contradict the engine the rest of the surface advertises
+	// and trip the manual's `notfound=404` check.
+	case h.isCMS():
+		h.persona404(w, r)
 
 	// The single-page templates ship no 404 page, and the hosting they imitate
 	// (`try_files $uri /index.html`) answers an extensionless miss with the app
