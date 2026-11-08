@@ -1,0 +1,1332 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="referrer" content="no-referrer" />
+<meta name="theme-color" content="#E8EAEE" />
+<link rel="icon" id="favIcon" href="logo.png" type="image/png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<title>Подписка</title>
+<style>
+/* Self-hosted variable fonts (Onest for text, Unbounded for display). Zero external
+   dependencies on purpose: a third-party CDN stylesheet is render-blocking, and on
+   networks where the CDN blackholes instead of refusing, the whole page script
+   stalls behind it and every button dies. */
+@font-face{font-family:Onest;font-style:normal;font-weight:400 600;font-display:swap;
+  src:url("fonts/onest-cyrillic.woff2") format("woff2");
+  unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:Onest;font-style:normal;font-weight:400 600;font-display:swap;
+  src:url("fonts/onest-latin.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Unbounded;font-style:normal;font-weight:400 700;font-display:swap;
+  src:url("fonts/unbounded-cyrillic.woff2") format("woff2");
+  unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:Unbounded;font-style:normal;font-weight:400 700;font-display:swap;
+  src:url("fonts/unbounded-latin.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+/* AmnesiaVIP — страница подписки.
+   Те же блоки, модалки и действия, что у страницы панели (данные: api/view?t=…,
+   действия: api/sub/<leaf>); поменян только внешний вид — под сайт и личный кабинет:
+   туман + чернильный синий, синий из логотипа для действий, красный — для бренда.
+   Шрифты: Unbounded (заголовки), Onest (текст). */
+
+:root{
+  --fog:#E8EAEE; --mist:#F5F6F8; --white:#fff;
+  --ink:#171A3A; --ink2:#22264D; --text:#2A2E52; --muted:#565B7A; --faint:#8A8EA8;
+  --line:#CDD1DB; --line-soft:#DDE0E7;
+  --blue:#1667D0; --blue-glow:#4FA3FF;
+  --red:#D3141C; --red-glow:#FF5A5F;
+  --green:#1F9D6B; --orange:#C7861A;
+  --r-sm:10px; --r-md:18px; --r-lg:28px;
+  --w:540px;
+  --display:"Unbounded",system-ui,sans-serif;
+  --font:"Onest",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{background:var(--fog);scrollbar-gutter:stable}
+body{margin:0;min-height:100vh;color:var(--ink);font:400 15.5px/1.5 var(--font);
+  -webkit-font-smoothing:antialiased;background:var(--fog);
+  padding:0 16px calc(28px + env(safe-area-inset-bottom));overflow-x:hidden}
+a{color:inherit}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+input,select{font:inherit;color:inherit}
+[hidden]{display:none !important}
+.wrap{position:relative;z-index:1;max-width:var(--w);margin:0 auto}
+svg.i{width:18px;height:18px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:6px}
+
+/* Декоративный фон панели не нужен: страница стоит на «тумане», как сайт */
+/* Фон: дракон слева снизу и мягкий полукруг справа — как у оригинальной страницы,
+   но в палитре сайта: полукруг в «тумане» с лёгким синим свечением. */
+.bg-disc{position:fixed;z-index:0;pointer-events:none;width:620px;height:620px;border-radius:50%;
+  right:-330px;top:80px;
+  background:radial-gradient(circle at 42% 42%,color-mix(in srgb,var(--blue-glow) 16%,var(--mist)) 0%,color-mix(in srgb,var(--blue-glow) 7%,var(--fog)) 52%,rgba(232,234,238,0) 72%)}
+.bg-dragon{position:fixed;z-index:0;pointer-events:none;user-select:none;left:-135px;bottom:-130px;
+  width:270px;height:auto;opacity:.42;filter:saturate(.85) blur(.4px)}
+
+/* шапка ─────────────────────────────────────────────────────────── */
+.top{display:flex;align-items:center;gap:12px;padding:22px 0 0;height:88px}
+.brand{display:flex;align-items:center;gap:8px;min-width:0}
+.brand img{width:44px;height:44px;margin-block:-4px;object-fit:contain;flex:0 0 auto}
+.word{display:inline-flex;align-items:center;gap:4px;min-width:0;
+  font:500 19px/1 var(--display);letter-spacing:-.02em;white-space:nowrap;color:var(--ink)}
+/* «AmanesiaVIP» → Amanesia + красная плашка VIP, как на сайте */
+.word em{padding:4px 6px 3px;border-radius:6px;background:var(--red);color:#fff;
+  font-size:11px;font-weight:700;font-style:normal;letter-spacing:.04em}
+.sp{flex:1}
+.lang{position:relative}
+.lang>button{display:flex;align-items:center;gap:7px;height:38px;padding:0 12px;border:1px solid var(--line);
+  border-radius:999px;color:var(--muted);font-size:14px;font-weight:500}
+.lang>button:hover{border-color:var(--ink);color:var(--ink)}
+.lang>button .i{width:17px;height:17px}
+.lang>button .chev{width:14px;height:14px}
+.lang ul{position:absolute;right:0;top:46px;margin:0;padding:6px;list-style:none;background:var(--mist);
+  border:1px solid var(--line-soft);border-radius:var(--r-md);min-width:160px;z-index:30;
+  box-shadow:0 18px 40px -18px rgba(23,26,58,.35)}
+.lang li button{width:100%;text-align:left;padding:9px 12px;border-radius:10px;font-size:14px;font-weight:500;color:var(--text)}
+.lang li button:hover,.lang li button[aria-current="true"]{background:var(--fog)}
+
+/* статус: бейджи, плашки, трафик ────────────────────────────────── */
+.status{margin:22px 0 18px}
+/* Приветствие и ID одной строкой — как на странице панели (имя есть → «Привет,
+   <имя> 👋», нет → просто «Привет 👋»), ID идёт сразу за именем. user_id отдаёт
+   subproxy: в самом view панели его нет. */
+.hero-row{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;margin:0 0 14px}
+.hero{margin:0;font:600 25px/1.25 var(--display);letter-spacing:-.02em;color:var(--ink);
+  overflow-wrap:anywhere}
+.uid{display:inline-flex;align-items:center;gap:6px;margin:0;color:var(--muted);
+  font-size:13.5px;font-weight:500}
+.uid .k{color:var(--faint);font-weight:600;letter-spacing:.02em}
+.uid b{padding:3px 8px;border:1px solid var(--line-soft);border-radius:7px;background:var(--mist);
+  font:500 13px/1 var(--mono);color:var(--ink);white-space:nowrap}
+.uid .uidcp{width:26px;height:26px;border:0;background:none;color:var(--faint)}
+.uid .uidcp:hover{color:var(--blue)}
+.uid .uidcp .i{width:15px;height:15px}
+.row-b{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.badge{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 13px;border-radius:999px;
+  font-size:13.5px;font-weight:600;white-space:nowrap}
+.badge .i{width:15px;height:15px;stroke-width:2.2}
+.badge.g{background:var(--green);color:#fff}
+.badge.r{background:var(--red);color:#fff}
+.badge.o{background:#F6E7CC;color:#80520C}
+.badge.on,.badge.off{background:var(--mist);color:var(--ink)}
+.badge.on::before,.badge.off::before{content:"";width:8px;height:8px;border-radius:50%}
+.badge.on::before{background:var(--green);animation:ping 2.4s ease-out infinite}
+.badge.off{color:var(--muted)}
+.badge.off::before{background:var(--faint)}
+@keyframes ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--green) 55%,transparent)}80%,100%{box-shadow:0 0 0 7px transparent}}
+.pill{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:999px;
+  border:1px solid var(--line);color:var(--muted);font-size:13.5px;font-weight:500;white-space:nowrap}
+.pill .i{width:16px;height:16px}
+.usage{height:6px;border-radius:6px;background:var(--line-soft);margin-top:16px;overflow:hidden}
+.usage i{display:block;height:100%;border-radius:inherit;background:var(--blue);transition:width .6s ease}
+.usage i.w{background:var(--orange)} .usage i.b{background:var(--red)}
+
+/* вкладки ───────────────────────────────────────────────────────── */
+.tabs{display:flex;gap:4px;padding:4px;margin:0 0 20px;background:var(--mist);border-radius:999px}
+.tab{flex:1 1 0;min-width:0;height:42px;border-radius:999px;color:var(--muted);font-size:15px;font-weight:500;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--mist)}
+
+/* уведомления ───────────────────────────────────────────────────── */
+.note{display:flex;align-items:center;gap:12px;padding:14px 16px;margin:0 0 16px;border-radius:var(--r-md);
+  background:var(--mist);color:var(--text);font-size:14.5px;font-weight:500;line-height:1.45}
+.note .spin{flex:0 0 auto;width:18px;height:18px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--blue);
+  animation:spin .8s linear infinite}
+.note .ic{flex:0 0 auto;color:var(--orange);display:grid}
+.note.warn{background:#F6E7CC;color:#5E3C08}
+.note b{color:var(--ink)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* карточки и кнопки ─────────────────────────────────────────────── */
+.card{background:var(--mist);border-radius:var(--r-lg);padding:20px 24px 22px;margin:0 0 16px}
+.card.pad{padding:22px 24px}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:50px;
+  padding:12px 20px;margin-top:10px;border:1.5px solid var(--blue);border-radius:999px;text-align:center;text-decoration:none;
+  background:var(--blue);color:#fff;font-size:15.5px;font-weight:500;
+  transition:background-color .2s,border-color .2s,color .2s}
+.btn:hover{background:var(--ink);border-color:var(--ink)}
+.btn:active{transform:scale(.985)}
+.btn .i{width:20px;height:20px}
+.btn.alt{background:transparent;border-color:var(--ink);color:var(--ink)}
+.btn.alt:hover{background:var(--ink);color:var(--mist)}
+.btn.alt .i,.btn.alt .i.b{color:inherit}
+.btn.sm{min-height:40px;padding:8px 16px;font-size:14px;width:auto;margin:0}
+.btn:disabled{opacity:.55;cursor:default}
+/* «Подключить за 3 шага» — главная кнопка карточки: тёмная, как членская карта в кабинете */
+.wiz{position:relative;width:100%;margin:0;min-height:58px;padding:0 54px 0 22px;justify-content:flex-start;
+  border-color:var(--ink);background:var(--ink);color:var(--mist);font:500 15px/1.2 var(--display);letter-spacing:-.01em}
+.wiz:hover{background:var(--blue);border-color:var(--blue)}
+.wiz>.i:first-child{color:var(--red-glow)}
+.wiz .arr{position:absolute;right:20px;top:50%;transform:translateY(-50%)}
+.muted{color:var(--muted);font-size:14px}
+.qr{display:flex;justify-content:center;margin:24px 0 18px}
+.qr img{display:block;width:184px;height:184px;padding:10px;background:#fff;border-radius:var(--r-md);image-rendering:pixelated}
+.qr.sm{margin:10px 0}.qr.sm img{width:170px;height:170px}
+.hint{text-align:center;color:var(--muted);font-size:13.5px;margin:0 0 8px}
+.lbl{font-size:13.5px;font-weight:500;color:var(--muted)}
+
+/* раскрывашки (AmneziaWG / TURN / конфиги / Telegram) ───────────── */
+.fold{background:var(--mist);border-radius:var(--r-md);margin:0 0 8px}
+.fold>summary{list-style:none;display:flex;align-items:center;gap:14px;min-height:66px;padding:10px 20px 10px 14px;
+  cursor:pointer;border-radius:inherit}
+.fold>summary::-webkit-details-marker{display:none}
+.tile{flex:0 0 auto;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;
+  background:var(--ink);color:var(--mist)}
+.tile .i{width:19px;height:19px}
+.fold .t{flex:1;min-width:0;font-size:16px;font-weight:600;color:var(--ink)}
+.fold .t small{font-size:14px;font-weight:400;color:var(--muted)}
+.fold .chev{width:20px;height:20px;color:var(--muted);transition:transform .2s}
+.fold[open] .chev{transform:rotate(180deg)}
+.fold .body{padding:0 20px 16px 70px}
+.fold .lead{margin:0 0 6px;color:var(--muted);font-size:14px}
+.folds{margin-bottom:8px}
+.item{border-top:1px solid var(--line)}
+.item>summary{list-style:none;display:flex;align-items:center;gap:10px;padding:13px 0;cursor:pointer;
+  font-weight:600;font-size:14.5px;color:var(--ink)}
+.item>summary::-webkit-details-marker{display:none}
+.item>summary::after{content:"";margin-left:auto;width:7px;height:7px;flex:0 0 auto;
+  border-right:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s}
+.item[open]>summary::after{transform:rotate(-135deg) translate(-2px,-2px)}
+.item .in{padding:0 0 14px}
+.item .btn{margin-top:8px}
+.app-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0 0}
+.app-row .name{font-size:14px;font-weight:500;color:var(--text)}
+code{direction:ltr;unicode-bidi:isolate;word-break:break-all;font:12px/1.5 var(--mono);color:var(--muted)}
+.code{display:block;padding:10px 12px;border-radius:var(--r-sm);background:var(--fog);max-height:92px;overflow:auto}
+.copy-row{display:flex;align-items:center;gap:8px}
+.copy-row code{flex:1;min-width:0;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--fog);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal}
+.ibtn{flex:0 0 auto;width:44px;height:44px;border:1px solid var(--line);border-radius:var(--r-sm);display:inline-flex;align-items:center;
+  justify-content:center;background:var(--mist);color:var(--ink);transition:border-color .2s,color .2s}
+.ibtn:hover{border-color:var(--blue);color:var(--blue)}
+.ibtn.ghost{width:30px;height:30px;border:0;background:none;color:var(--faint)}
+.ibtn.ghost:hover{color:var(--red)}
+.ibtn .done{display:none}.ibtn.ok .cp{display:none}.ibtn.ok .done{display:block;color:var(--green)}
+
+/* доступ к кабинету ─────────────────────────────────────────────── */
+.access{display:flex;gap:14px;align-items:flex-start;padding:2px 0 4px}
+.access>.i{width:22px;height:22px;color:var(--red);margin-top:2px}
+.access h3{margin:0 0 6px;font:500 16px/1.3 var(--display);letter-spacing:-.02em;color:var(--ink)}
+.access p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
+.access-btn{margin-top:16px;font-size:14.5px}
+
+/* устройства / история / тарифы ─────────────────────────────────── */
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
+.row+.row{border-top:1px solid var(--line)}
+.row .grow{min-width:0;flex:1}
+.row .n{font-weight:600;overflow-wrap:anywhere;color:var(--ink)}
+.row .s{font-size:13px;color:var(--muted);margin-top:2px}
+.row .amt{flex:0 0 auto;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.row .amt.in{color:var(--green)}
+.row .amt.mut{font-weight:400;color:var(--muted);font-size:13.5px}
+.chipmini{display:inline-block;font-size:11px;font-weight:600;color:#fff;background:var(--red);
+  border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:1px}
+.cur{display:flex;flex-direction:column;gap:4px;padding-bottom:16px;margin-bottom:2px;border-bottom:1px solid var(--line)}
+.cur .v{font:500 22px/1.2 var(--display);letter-spacing:-.03em;overflow-wrap:anywhere;color:var(--ink)}
+.cur .x{font-size:14px;color:var(--muted)}
+.inline{display:flex;gap:8px;margin-top:14px}
+.field{flex:1;min-width:0;height:50px;padding:0 16px;border-radius:999px;border:1px solid var(--line);
+  background:var(--fog);font-size:15px;color:var(--ink)}
+.field:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 18%,transparent)}
+.inline .btn{width:auto;margin:0;flex:0 0 auto}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+select.field{-webkit-appearance:none;appearance:none;padding-right:42px;cursor:pointer;
+  background:var(--fog) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23565B7A' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 18px center/12px 8px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 0 4px;cursor:pointer;font-weight:600}
+.switch input{-webkit-appearance:none;appearance:none;flex:0 0 auto;position:relative;width:44px;height:26px;margin:0;
+  border-radius:999px;background:var(--line);cursor:pointer;transition:background .2s}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(23,26,58,.25);transition:transform .2s}
+.switch input:checked{background:var(--blue)}
+.switch input:checked::after{transform:translateX(18px)}
+.renew-note{margin:2px 0 0;font-size:13.5px;color:var(--muted)}
+.renew-note.short{color:#80520C;font-weight:600}
+.linkbtn{display:block;margin:14px auto 0;color:var(--muted);font-size:14px;text-decoration:underline;text-underline-offset:3px}
+.linkbtn:hover{color:var(--red)}
+.block p{margin:0 0 .5em}.block p:last-child{margin:0}
+
+/* FAQ рефералки: нативные details для мыши, касаний и клавиатуры */
+.ref-faq h3{margin:0 0 6px;font:500 18px/1.3 var(--display);letter-spacing:-.02em;color:var(--ink)}
+.ref-faq .intro{margin:0 0 14px;font-size:14px;line-height:1.55;color:var(--muted)}
+.ref-faq .item>summary{gap:14px;line-height:1.5;border-radius:6px}
+.ref-faq .item[open]>summary{color:var(--blue)}
+.ref-faq .in p{margin:0;color:var(--muted);font-size:14px;line-height:1.65;overflow-wrap:anywhere}
+.ref-faq .help{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-top:14px;padding-top:14px;
+  border-top:1px solid var(--line);color:var(--muted);font-size:14px}
+.ref-faq .help a{color:var(--blue);font-weight:600;text-underline-offset:3px}
+
+footer{margin:12px 0 0}
+footer nav{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;font-size:13.5px}
+footer nav a{color:var(--muted);text-decoration:none}
+footer nav a:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+
+/* модальные окна ────────────────────────────────────────────────── */
+.modal{display:none;position:fixed;inset:0;z-index:50;align-items:center;justify-content:center;padding:16px;
+  background:color-mix(in srgb,var(--ink) 60%,transparent);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.modal.show{display:flex}
+.mcard{width:100%;max-width:440px;max-height:86vh;overflow:auto;background:var(--mist);border-radius:var(--r-lg);padding:24px}
+@media (prefers-reduced-motion:no-preference){
+  .modal.show{animation:fade .16s ease}
+  .modal.show .mcard{animation:pop .2s ease}
+}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{transform:translateY(8px);opacity:.6}to{transform:none;opacity:1}}
+.mhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.mhead b{font:500 18px/1.3 var(--display);letter-spacing:-.02em;color:var(--ink)}
+.mhead .x{width:38px;height:38px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;color:var(--ink)}
+.mhead .x:hover{border-color:var(--ink)}
+.mhead .x .i{width:18px;height:18px}
+
+/* мастер подключения: прогресс в цветах логотипа — от красного к синему */
+.steps{display:flex;gap:6px;margin:-4px 0 16px}
+.steps i{flex:1;height:4px;border-radius:4px;background:var(--line-soft)}
+.steps i.on:nth-child(1){background:var(--red)}
+.steps i.on:nth-child(2){background:#7A3C8C}
+.steps i.on:nth-child(3){background:var(--blue)}
+.wz-plats{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+.chip{height:38px;padding:0 16px;border:1px solid var(--line);border-radius:999px;color:var(--ink);font-size:14px;font-weight:500;
+  transition:background-color .2s,border-color .2s,color .2s}
+.chip:hover{border-color:var(--ink)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--mist)}
+.wz-links .btn{margin-top:10px}
+.wz-nav{display:flex;gap:10px;margin-top:20px}
+.wz-nav .btn{margin:0}
+.wz-ok{display:flex;gap:14px;align-items:flex-start}
+.wz-ok .tile{background:color-mix(in srgb,var(--green) 16%,var(--mist));color:var(--green)}
+
+/* тарифы */
+.pick{border:1.5px solid var(--line);border-radius:var(--r-md);margin-top:10px;transition:border-color .2s,box-shadow .2s}
+.pick:first-of-type{margin-top:0}
+.pick:hover{border-color:var(--ink)}
+.pick.on{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue);background:#fff}
+.pick-head{display:flex;align-items:center;gap:12px;width:100%;padding:16px 18px;text-align:left;border-radius:inherit}
+.pick .info{flex:1;min-width:0;display:flex;flex-direction:column}
+.pick .pn{font:500 16px/1.3 var(--display);letter-spacing:-.02em;color:var(--ink);overflow-wrap:anywhere}
+.pick .pp{color:var(--muted);font-size:14px;margin-top:4px}
+.pick .pp s{opacity:.7;margin-right:6px}
+.pick .promo{color:var(--red);font-size:13.5px;font-weight:600;margin-top:2px}
+.pick .cur-tag{align-self:flex-start;margin-top:6px;padding:2px 8px;border-radius:999px;background:var(--blue);color:#fff;font-size:11.5px;font-weight:500}
+.dot{flex:0 0 auto;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line);transition:border .15s}
+.pick.on .dot{border:6px solid var(--blue)}
+.pick-body{display:flex;flex-direction:column;gap:10px;padding:0 18px 18px}
+.pick-body .btn{margin:0}
+.pick-body .field{flex:none;width:100%}
+
+/* способы оплаты */
+.paylist{display:flex;flex-direction:column;gap:8px}
+.pm{display:flex;align-items:center;gap:14px;width:100%;padding:10px 16px 10px 10px;border-radius:999px;
+  border:1.5px solid var(--line);text-align:left;font-weight:600;font-size:15px;color:var(--ink);transition:border-color .2s,background .2s}
+.pm:hover{border-color:var(--blue);background:#fff}
+.pm .arr{margin-left:auto;color:var(--muted);width:18px;height:18px}
+.pm:disabled{opacity:.55}
+
+/* приложения */
+.apps{display:flex;flex-direction:column;gap:8px}
+.app{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-radius:var(--r-md);
+  border:1.5px solid var(--line);color:var(--ink);font-weight:600;text-decoration:none;transition:border-color .2s,background .2s}
+.app:hover{border-color:var(--blue);background:#fff}
+.app .plat{font-size:12.5px;font-weight:400;color:var(--muted);text-align:right}
+.msgbody{margin:0;white-space:pre-line;font-size:15px;line-height:1.55;color:var(--text)}
+
+/* загрузка / уведомление */
+#boot{display:grid;place-items:center;min-height:70vh;text-align:center;gap:14px}
+#boot img{width:84px}
+#boot p{margin:10px 0 0;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){ #boot img{animation:pulse 1.6s ease-in-out infinite} }
+@keyframes pulse{0%,100%{opacity:.4;transform:scale(.96)}50%{opacity:1;transform:none}}
+#toast{position:fixed;left:50%;bottom:24px;z-index:60;transform:translate(-50%,16px);opacity:0;pointer-events:none;
+  background:var(--ink);color:var(--mist);padding:12px 20px;border-radius:999px;font-size:14.5px;font-weight:500;
+  transition:opacity .2s,transform .2s;max-width:90vw;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:520px){
+  body{padding:0 14px calc(24px + env(safe-area-inset-bottom))}
+  .top{height:74px;padding-top:14px}
+  .brand img{width:38px;height:38px}
+  .word{font-size:16px}
+  .lang>button{padding:0 10px}
+  .lang .lname{display:none}
+  .status{margin:14px 0 14px}
+  .hero-row{gap:8px;margin-bottom:12px}
+  .hero{font-size:21px}
+  .uid{font-size:12.5px}
+  .uid b{font-size:12px}
+  .card,.card.pad{padding:18px 16px}
+  .fold>summary{padding:10px 14px 10px 12px;gap:12px;min-height:60px}
+  .fold .body{padding:0 16px 14px}
+  .fold .t{font-size:15px}
+  .mcard{padding:20px}
+  .bg-dragon{width:220px;left:-110px;bottom:-80px;opacity:.35}
+  .bg-disc{width:420px;height:420px;right:-240px}
+}
+@media (max-width:420px){ .row-b{gap:6px} .pill{font-size:12.5px;padding:0 10px;gap:6px;height:28px} .pill .i{width:14px;height:14px} }
+@media (max-width:360px){ .tab{font-size:14px} .wiz{font-size:14px} }
+</style>
+</head>
+<body>
+
+<div class="bg-disc" aria-hidden="true"></div>
+<img class="bg-dragon" src="bg-dragon.png" alt="" aria-hidden="true" />
+
+<div class="wrap" id="boot">
+  <div><img class="brand-logo" src="logo.png" alt="" /><p data-t="loading">Загружаем подписку…</p></div>
+</div>
+
+<div class="wrap" id="app" hidden>
+
+  <header class="top">
+    <span class="brand"><img class="brand-logo" src="logo.png" alt="" /><span class="word" id="brandWord">—</span></span>
+    <span class="sp"></span>
+    <div class="lang" id="lang">
+      <button type="button" id="langBtn" aria-haspopup="true" aria-expanded="false">
+        <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
+        <span class="lname" id="langName">Русский</span>
+        <svg class="i chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <ul id="langList" hidden></ul>
+    </div>
+  </header>
+
+  <section class="status" aria-label="Статус подписки">
+    <div class="hero-row">
+      <h1 class="hero" id="hero" hidden></h1>
+      <div class="uid" id="uid" hidden></div>
+    </div>
+    <div class="row-b" id="badges"></div>
+    <div class="row-b" id="pills" style="margin:0"></div>
+    <div class="usage" id="usage" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div>
+  </section>
+
+  <div id="notices"></div>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button type="button" class="tab" role="tab" data-tab="sub" aria-selected="true" data-t="tab_sub">Подписка</button>
+    <button type="button" class="tab" role="tab" data-tab="pay" aria-selected="false" data-t="tab_pay">Оплата</button>
+    <button type="button" class="tab" role="tab" data-tab="ref" aria-selected="false" data-t="tab_ref">Рефералы</button>
+  </nav>
+
+  <div class="note" id="paywatch" hidden>
+    <span class="spin" aria-hidden="true"></span>
+    <span data-t="paywatch">Оплата обрабатывается… Всё применится автоматически после подтверждения.</span>
+  </div>
+
+  <!-- ── Подписка ─────────────────────────────────────────────── -->
+  <section class="pane" data-pane="sub">
+    <div class="card">
+      <button type="button" class="btn wiz" id="wizBtn">
+        <svg class="i" viewBox="0 0 24 24"><path d="M10 13.5a4.5 4.5 0 0 0 6.4.4l2.8-2.8a4.5 4.5 0 0 0-6.4-6.4l-1.3 1.3"/><path d="M14 10.5a4.5 4.5 0 0 0-6.4-.4l-2.8 2.8a4.5 4.5 0 0 0 6.4 6.4l1.3-1.3"/></svg>
+        <span data-t="wizard">Подключить за 3 шага</span>
+        <svg class="i arr" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
+      </button>
+      <div class="qr"><img id="qr" alt="QR-код подписки" /></div>
+      <p class="hint" data-t="qr_hint">Отсканируйте QR в приложении или нажмите кнопку ниже</p>
+      <button type="button" class="btn" id="copySub">
+        <svg class="i" viewBox="0 0 24 24"><path d="M10 13.5a4.5 4.5 0 0 0 6.4.4l2.8-2.8a4.5 4.5 0 0 0-6.4-6.4l-1.3 1.3"/><path d="M14 10.5a4.5 4.5 0 0 0-6.4-.4l-2.8 2.8a4.5 4.5 0 0 0 6.4 6.4l1.3-1.3"/></svg>
+        <span data-t="copy_sub">Скопировать ссылку подписки</span>
+      </button>
+      <button type="button" class="btn alt" id="openApps">
+        <svg class="i" viewBox="0 0 24 24"><path d="M14.5 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14.5 3.5V8H19"/></svg>
+        <span data-t="open_app">Открыть в приложении</span>
+      </button>
+      <a class="btn alt" id="clashBtn" download="clash.yaml" hidden>
+        <svg class="i b" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.2 7.5l2.1 1.2M17.7 15.3l2.1 1.2M4.2 16.5l2.1-1.2M17.7 8.7l2.1-1.2"/><path d="M12 5.2a6.8 6.8 0 1 1 0 13.6 6.8 6.8 0 0 1 0-13.6z"/></svg>
+        <span data-t="clash">Скачать конфиг Clash</span>
+      </a>
+    </div>
+
+    <div class="card pad" id="devCard" hidden>
+      <div class="lbl" id="devTitle" style="margin-bottom:2px">Устройства</div>
+      <div id="devRows"></div>
+    </div>
+
+    <div class="folds" id="folds"></div>
+    <div id="blocks"></div>
+
+    <div class="card pad">
+      <div class="access">
+        <svg class="i" viewBox="0 0 24 24"><rect x="2.8" y="5" width="18.4" height="14" rx="2.6"/><path d="M2.8 9.6h18.4M15 14.5h3"/></svg>
+        <div>
+          <h3 data-t="access_t">Доступ к кабинету</h3>
+          <p data-t="access_p">Эта страница — ваш личный кабинет, пароля нет. Сохраните ссылку на неё в закладки или заметки.</p>
+        </div>
+      </div>
+      <button type="button" class="btn alt access-btn" id="copyCab">
+        <svg class="i" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2.2"/><path d="M15.5 8.5V5.7a2.2 2.2 0 0 0-2.2-2.2H5.7a2.2 2.2 0 0 0-2.2 2.2v7.6a2.2 2.2 0 0 0 2.2 2.2h2.8"/></svg>
+        <span data-t="copy_cab">Скопировать ссылку на кабинет</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ── Оплата ───────────────────────────────────────────────── -->
+  <section class="pane" data-pane="pay" hidden>
+    <div class="card pad" id="planCard"></div>
+    <div class="card pad" id="walletCard" hidden></div>
+    <div class="card pad" id="promoCard" hidden>
+      <div class="lbl" data-t="promo_t">Промокод</div>
+      <div class="inline">
+        <input class="field" id="promoCode" autocomplete="off" maxlength="64" data-ph="promo_ph" placeholder="Введите промокод" />
+        <button type="button" class="btn" id="promoBtn" data-t="apply">Применить</button>
+      </div>
+    </div>
+    <div class="card pad" id="histCard" hidden>
+      <div class="lbl" data-t="history" style="margin-bottom:2px">История операций</div>
+      <div id="histRows"></div>
+    </div>
+  </section>
+
+  <!-- ── Рефералы ─────────────────────────────────────────────── -->
+  <section class="pane" data-pane="ref" hidden>
+    <div class="card pad" id="refCard"></div>
+    <div class="card pad ref-faq" id="refFaq" aria-labelledby="refFaqTitle" hidden></div>
+  </section>
+
+  <footer><nav id="legal"></nav></footer>
+</div>
+
+<!-- ── modals ─────────────────────────────────────────────────── -->
+<div class="modal" id="wizard">
+  <div class="mcard">
+    <div class="mhead"><b id="wzTitle"></b><button class="x" type="button" data-close aria-label="Закрыть"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="steps"><i></i><i></i><i></i></div>
+    <div class="wz-step" data-step="1">
+      <p class="muted" style="margin:0" data-t="wz1">Рекомендуем Happ — работает на всех устройствах. Выберите своё и установите.</p>
+      <div class="wz-plats" id="wzPlats"></div>
+      <div class="wz-links" id="wzLinks"></div>
+    </div>
+    <div class="wz-step" data-step="2" hidden>
+      <p class="muted" style="margin:0" data-t="wz2">Нажмите кнопку — Happ откроется и добавит подписку сам.</p>
+      <a class="btn" id="wzAdd" href="#"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span data-t="wz_add">Добавить подписку в Happ</span></a>
+      <button type="button" class="btn alt" id="wzOther" data-t="wz_other">У меня другое приложение</button>
+    </div>
+    <div class="wz-step" data-step="3" hidden>
+      <div class="wz-ok">
+        <span class="tile"><svg class="i" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+        <p style="margin:0;color:var(--text)" data-t="wz3">Откройте Happ и нажмите большую кнопку подключения. Если что-то не открывается — выберите в списке другой сервер.</p>
+      </div>
+    </div>
+    <div class="wz-nav">
+      <button type="button" class="btn alt" id="wzBack" data-t="back">Назад</button>
+      <button type="button" class="btn" id="wzNext" data-t="next">Дальше</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="apps">
+  <div class="mcard">
+    <div class="mhead"><b data-t="pick_app">Выберите приложение</b><button class="x" type="button" data-close aria-label="Закрыть"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="apps" id="appList"></div>
+  </div>
+</div>
+
+<div class="modal" id="plansmodal">
+  <div class="mcard">
+    <div class="mhead"><b data-t="plans">Тарифы</b><button class="x" type="button" data-close aria-label="Закрыть"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div id="planList"></div>
+  </div>
+</div>
+
+<div class="modal" id="paymodal">
+  <div class="mcard">
+    <div class="mhead"><b data-t="pay_method">Способ оплаты</b><button class="x" type="button" data-close aria-label="Закрыть"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="paylist" id="payList"></div>
+  </div>
+</div>
+
+<div class="modal" id="msgmodal">
+  <div class="mcard">
+    <div class="mhead"><b id="msgTitle">Оплата</b><button class="x" type="button" data-close aria-label="Закрыть"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <p class="msgbody" id="msgBody" dir="auto"></p>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script src="mock.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ── settings ─────────────────────────────────────────────────────
+     USE_PANEL_LOGO: true — логотип из панели (<sub>/logo.svg), его меняет оператор;
+     false — всегда logo.png, который лежит рядом со страницей. */
+  var USE_PANEL_LOGO = false;
+
+  var Q = new URLSearchParams(location.search);
+  var TOKEN = Q.get("t") || "";
+  var LANG = (Q.get("lang") || lsGet("amn-lang") || (navigator.language || "ru")).slice(0, 2).toLowerCase();
+  if (LANGS().indexOf(LANG) < 0) LANG = "ru";
+
+  // ── i18n for the page's own labels (panel texts arrive already translated) ──
+  function LANGS(){ return ["ru","en"]; }
+  var LANG_NAMES = { ru:"Русский", en:"English" };
+  var I18N = {
+    en: {
+      loading:"Loading subscription…", download:"Download", account:"Your account",
+      tab_sub:"Subscription", tab_pay:"Payment", tab_ref:"Referrals",
+      paywatch:"Payment is being processed… Everything applies automatically after confirmation.",
+      wizard:"Connect in 3 steps", qr_hint:"Scan the QR in the app or tap the button below",
+      copy_sub:"Copy subscription link", open_app:"Open in app", clash:"Download Clash config",
+      access_t:"Access to your account", access_p:"This page is your personal account, no password. Save its link to bookmarks or notes.",
+      copy_cab:"Copy account link", tagline:"Fast · Secure · Free",
+      promo_t:"Promo code", promo_ph:"Enter promo code", apply:"Apply", history:"Transactions",
+      wz1:"We recommend Happ — it works on every device. Pick yours and install it.",
+      wz2:"Tap the button — Happ opens and adds the subscription itself.",
+      wz_add:"Add subscription to Happ", wz_other:"I use another app",
+      wz3:"Open Happ and tap the big connect button. If something doesn't open, pick another server in the list.",
+      back:"Back", next:"Next", done:"Done", pick_app:"Choose an app", plans:"Plans", pay_method:"Payment method",
+      wz_t1:"Step 1 of 3 · Install the app", wz_t2:"Step 2 of 3 · Add the subscription", wz_t3:"Step 3 of 3 · Connect",
+      online:"Online", offline:"Offline", traffic:"Traffic", until:"Subscription until", traffic_until:"Traffic until",
+      greeting:"Hello", greeting_name:"Hello, %s", uid:"ID",
+      copied:"Copied", copy_manual:"Copy it manually", clash_copied:"Config link copied — open it in your browser", cur_plan:"Current plan", change_plan:"Change plan",
+      cancel_sub:"Cancel subscription", balance:"Balance", topup:"Top up", topup_ph:"Amount", pay:"Pay",
+      invite:"Invite friends", share:"Invite a friend", devices:"Devices", unbind:"Remove", this_dev:"this device",
+      awg:"AmneziaWG", turn:"WireGuard via calls (TURN)", configs:"Separate configs", tgp:"Telegram proxy",
+      awg_lead:"For AmneziaVPN and AmneziaWG apps: scan the QR or download the file and import it into the app.",
+      turn_lead:"For VK Turn Proxy (iOS), Free Turn Proxy (Android) and WINGS V (Android, Windows, Linux): open the link or copy it into the app.",
+      tg_lead:"Telegram connects through a proxy without VPN: tap “Add to Telegram” or scan the QR.",
+      dl_conf:"Download config", copy:"Copy", open:"Open", add_tg:"Add to Telegram", manual:"Manual setup",
+      peer:"Server address (peer)", no_call:"No call link — create a VK call and use its link.",
+      app_page:"App page", net_err:"Network error, try again", pay_err:"Couldn't create a payment. Try later.",
+      err:"Error", order:"Order payment", order_ok:"Order created. Wait for confirmation.", paid:"Payment received",
+      cancel_q:"Cancel the current subscription? You will move to the free plan, remaining paid time is lost.",
+      unbind_q:"Remove this device? It will stop updating the subscription.", current:"current",
+      legal_terms:"Terms", legal_privacy:"Privacy", tg_bot:"Telegram bot", tg_bind:"Link Telegram",
+      from_balance:"Pay from balance",
+      ref_faq_title:"Referral FAQ", ref_faq_intro:"How bonuses work and how to request a payout.",
+      ref_faq_invite_q:"How do I invite a friend?",
+      ref_faq_invite_a:"Copy your referral link above or tap “Invite a friend.” Send that link, not your personal subscription link. Your friend should open it and start the bot.",
+      ref_faq_reward_q:"How much will I earn?",
+      ref_faq_reward_a:"The current bonus terms are shown at the top of this tab. Check them before inviting friends.",
+      ref_faq_withdraw_q:"How do I withdraw my bonuses?",
+      ref_faq_withdraw_a:"Card payouts are available from 500 ₽ in referral bonuses. Contact support and say you would like a referral payout. Support will verify the available amount and explain the next steps. Payouts are handled manually, not automatically.",
+      ref_faq_min_q:"What is the minimum withdrawal amount?",
+      ref_faq_min_a:"The minimum withdrawal amount is 500 ₽ in referral bonuses. Once you reach that amount, contact support to request a card payout.",
+      ref_faq_when_q:"When is a bonus credited?",
+      ref_faq_when_a:"The bonus depends on the invited friend’s confirmed payment and the program terms. Opening the link or starting the bot does not mean a bonus has been earned. If payment is still being processed, wait for confirmation.",
+      ref_faq_spend_q:"Can I use bonuses for my own subscription?",
+      ref_faq_spend_a:"If “Pay from balance” is available for your chosen plan on the Payment tab, you can use your balance. Check the price and available balance before confirming.",
+      ref_faq_missing_q:"My friend paid, but I received no bonus. What should I do?",
+      ref_faq_missing_a:"Refresh this page and check the invitee list. If the bonus is still missing, contact support with your and your friend’s Telegram usernames and the approximate payment date. Never send passwords, subscription links, or your card’s PIN or CVV.",
+      ref_faq_help:"Still have a question?", ref_faq_support:"Contact support"
+    }
+  };
+  var RU = {
+    wz_t1:"Шаг 1 из 3 · Установите приложение", wz_t2:"Шаг 2 из 3 · Добавьте подписку", wz_t3:"Шаг 3 из 3 · Подключитесь",
+    back:"Назад", next:"Дальше", done:"Готово", online:"Онлайн", offline:"Не в сети", traffic:"Трафик",
+    greeting:"Привет", greeting_name:"Привет, %s", uid:"ID",
+    until:"Подписка до", traffic_until:"Трафик до", copied:"Скопировано", copy_manual:"Скопируйте вручную", clash_copied:"Ссылка на конфиг скопирована — открой её в браузере",
+    cur_plan:"Текущий тариф", change_plan:"Сменить тариф", cancel_sub:"Отменить подписку", balance:"Баланс",
+    topup:"Пополнить", topup_ph:"Сумма", pay:"Оплатить", invite:"Пригласите друзей", share:"Пригласить друга",
+    devices:"Устройства", unbind:"Удалить", this_dev:"это устройство", awg:"AmneziaWG",
+    turn:"WireGuard через звонки (TURN)", configs:"Отдельные конфиги", tgp:"Прокси для Telegram",
+    awg_lead:"Для приложений AmneziaVPN и AmneziaWG: отсканируйте QR или скачайте файл и импортируйте его в приложение.",
+    turn_lead:"Для приложений VK Turn Proxy (iOS), Free Turn Proxy (Android) и WINGS V (Android, Windows, Linux): откройте ссылку или скопируйте её в приложение.",
+    tg_lead:"Telegram подключается через прокси без VPN: нажмите «Добавить в Telegram» или отсканируйте QR.",
+    dl_conf:"Скачать конфиг", copy:"Скопировать", open:"Открыть", add_tg:"Добавить в Telegram", manual:"Ручная настройка",
+    peer:"Адрес сервера (peer)", no_call:"Ссылки на звонок нет — создайте звонок ВКонтакте и используйте его ссылку.",
+    app_page:"Страница приложения", net_err:"Ошибка сети, попробуйте ещё раз", pay_err:"Не удалось создать платёж. Попробуйте позже.",
+    err:"Ошибка", order:"Оплата заказа", order_ok:"Заказ создан. Ожидайте подтверждения.", paid:"Оплата прошла",
+    cancel_q:"Отменить текущую подписку? Вы перейдёте на бесплатный тариф, оставшееся оплаченное время сгорит.",
+    unbind_q:"Удалить это устройство? Оно перестанет обновлять подписку.", current:"текущий",
+    legal_terms:"Условия", legal_privacy:"Конфиденциальность", tg_bot:"Telegram-бот", tg_bind:"Привязать Telegram",
+    from_balance:"Оплатить с баланса",
+    ref_faq_title:"Вопросы о реферальной программе", ref_faq_intro:"Коротко о бонусах и выводе средств.",
+    ref_faq_invite_q:"Как пригласить друга?",
+    ref_faq_invite_a:"Скопируйте реферальную ссылку выше или нажмите «Пригласить друга». Отправьте именно её, а не личную ссылку подписки. Другу нужно перейти по ссылке и запустить бота.",
+    ref_faq_reward_q:"Сколько я получу за приглашённого друга?",
+    ref_faq_reward_a:"Актуальные условия начисления указаны в верхней части этой вкладки. Проверьте их перед приглашением друзей.",
+    ref_faq_withdraw_q:"Как вывести реферальные бонусы?",
+    ref_faq_withdraw_a:"Вывод на карту доступен от 500 ₽ реферальных бонусов. Напишите в поддержку, что хотите получить реферальную выплату. Поддержка проверит доступную сумму и подскажет дальнейшие действия. Выплаты оформляются вручную, а не автоматически.",
+    ref_faq_min_q:"Какая минимальная сумма для вывода?",
+    ref_faq_min_a:"Минимальная сумма для вывода — 500 ₽ реферальных бонусов. Когда накопите эту сумму, напишите в поддержку для оформления выплаты на карту.",
+    ref_faq_when_q:"Когда начисляется бонус?",
+    ref_faq_when_a:"Бонус зависит от подтверждённой оплаты приглашённого друга и условий программы. Один переход по ссылке или запуск бота ещё не означает начисление. Если платёж обрабатывается, дождитесь подтверждения.",
+    ref_faq_spend_q:"Можно оплатить свою подписку бонусами?",
+    ref_faq_spend_a:"Если на вкладке «Оплата» для выбранного тарифа доступна кнопка «Оплатить с баланса», можно воспользоваться балансом. Перед подтверждением проверьте стоимость тарифа и доступную сумму.",
+    ref_faq_missing_q:"Друг оплатил, а бонус не пришёл. Что делать?",
+    ref_faq_missing_a:"Обновите страницу и проверьте список приглашённых. Если бонуса по-прежнему нет, напишите в поддержку: укажите ваш Telegram-ник, ник друга и примерную дату оплаты. Не отправляйте пароли, ссылки подписки, PIN или CVV карты.",
+    ref_faq_help:"Остались вопросы?", ref_faq_support:"Написать в поддержку"
+  };
+  function t(k){ return (LANG !== "ru" && I18N[LANG] && I18N[LANG][k]) || RU[k] || k; }
+  function applyStatic(){
+    document.documentElement.lang = LANG;
+    if (LANG === "ru") return; // Russian is what the markup already says
+    var d = I18N[LANG] || {};
+    each(document.querySelectorAll("[data-t]"), function(el){ var k=el.getAttribute("data-t"); if (d[k]) el.textContent = d[k]; });
+    each(document.querySelectorAll("[data-ph]"), function(el){ var k=el.getAttribute("data-ph"); if (d[k]) el.placeholder = d[k]; });
+  }
+
+  // ── Happ download links for wizard step 1 (same as the panel's page) ──
+  var PLATS = [
+    ["ios","iPhone · iPad",[["App Store (Россия)","https://apps.apple.com/ru/app/happ-lite/id6799917773"],["App Store (другие страны)","https://apps.apple.com/us/app/happ-proxy-utility/id6504287215"]]],
+    ["android","Android",[["Google Play","https://play.google.com/store/apps/details?id=com.happproxy"],["Скачать APK","https://github.com/Happ-proxy/happ-android/releases/latest/download/Happ.apk"]]],
+    ["windows","Windows",[["Windows x64","https://github.com/Happ-proxy/happ-desktop/releases/latest/download/setup-Happ.x64.exe"],["Windows ARM","https://github.com/Happ-proxy/happ-desktop/releases/latest/download/setup-Happ.arm64.exe"]]],
+    ["macos","macOS",[["App Store (Россия)","https://apps.apple.com/ru/app/happ-proxy-utility/id6783623643"],["App Store (другие страны)","https://apps.apple.com/us/app/happ-proxy-utility/id6504287215"],["DMG","https://github.com/Happ-proxy/happ-desktop/releases/latest/download/Happ.macOS.universal.dmg"]]],
+    ["linux","Linux",[["Linux .deb","https://github.com/Happ-proxy/happ-desktop/releases/latest/download/Happ.linux.x64.deb"],["Linux .rpm","https://github.com/Happ-proxy/happ-desktop/releases/latest/download/Happ.linux.x64.rpm"]]],
+    ["tv","TV",[["Android TV","https://play.google.com/store/apps/details?id=com.happproxy"],["Apple TV","https://apps.apple.com/us/app/happ-proxy-utility-for-tv/id6748297274"]]]
+  ];
+
+  // ── tiny helpers ─────────────────────────────────────────────────
+  function $(id){ return document.getElementById(id); }
+  function each(l,f){ Array.prototype.forEach.call(l,f); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+  // links come from the panel; app schemes (happ://, vless://, tg://…) are fine, script/data URLs are not
+  function safe(u){ u=String(u||""); return /^\s*(javascript|data|vbscript):/i.test(u)?"#":u; }
+  function el(tag,cls,html){ var e=document.createElement(tag); if(cls) e.className=cls; if(html!=null) e.innerHTML=html; return e; }
+  function ico(p,cls){ return '<svg class="i'+(cls?" "+cls:"")+'" viewBox="0 0 24 24">'+p+"</svg>"; }
+  var IC = {
+    bolt:'<path class="f" d="M13.2 2.5 5 13.4h6l-1.2 8.1 8.2-10.9h-6z" fill="currentColor" stroke="none"/>',
+    shield:'<path d="M12 2.8 19.5 6v5.6c0 4.6-3.1 8.4-7.5 9.6-4.4-1.2-7.5-5-7.5-9.6V6z" fill="currentColor" stroke="none"/><path d="m8.8 12 2.2 2.2 4.3-4.4" stroke="#fff" stroke-width="2"/>',
+    gauge:'<path d="M12 3 19.8 7.5v9L12 21l-7.8-4.5v-9z"/><path d="M9 10.5h6M9 13.5h4"/>',
+    cal:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2"/>',
+    chev:'<path d="m6 9 6 6 6-6"/>', right:'<path d="m9 6 6 6-6 6"/>',
+    plane:'<path d="M21.3 3.2 2.6 10.6c-.8.3-.8 1.4 0 1.7l6.1 2.2 2.2 6.1c.3.8 1.4.8 1.7 0z" fill="currentColor" stroke="none"/><path d="m8.7 14.5 6.2-6.2" stroke="#fff" stroke-width="1.6"/>',
+    turn:'<path d="M12 2.8 19.5 6v5.6c0 4.6-3.1 8.4-7.5 9.6-4.4-1.2-7.5-5-7.5-9.6V6z"/><path d="M12 2.8v18.4c-4.4-1.2-7.5-5-7.5-9.6V6z" fill="currentColor"/>',
+    server:'<rect x="3.5" y="3.5" width="17" height="4.6" rx="1.4" fill="currentColor" stroke="none"/><rect x="3.5" y="9.7" width="17" height="4.6" rx="1.4" fill="currentColor" stroke="none"/><rect x="3.5" y="15.9" width="17" height="4.6" rx="1.4" fill="currentColor" stroke="none"/>',
+    db:'<ellipse cx="12" cy="6" rx="7.5" ry="2.8" fill="currentColor" stroke="none"/><path d="M4.5 10.2c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8M4.5 14.4c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8M4.5 6v12.4c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8V6" stroke-width="2.2"/>',
+    copy:'<rect x="8.5" y="8.5" width="12" height="12" rx="2.2"/><path d="M15.5 8.5V5.7a2.2 2.2 0 0 0-2.2-2.2H5.7a2.2 2.2 0 0 0-2.2 2.2v7.6a2.2 2.2 0 0 0 2.2 2.2h2.8"/>',
+    check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>', info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.2"/>',
+    down:'<path d="M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M4 19.5h16"/>', ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>',
+    card:'<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h3"/>',
+    wallet:'<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M16 13.5h.01"/>',
+    coin:'<circle cx="12" cy="12" r="8.5"/><path d="M9.5 8.5h4a2 2 0 0 1 0 4h-4m0 0h4.5a2 2 0 0 1 0 4h-4.5m0-8v8M11 7v1.5M11 16.5V18"/>',
+    star:'<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+    gift:'<rect x="3.5" y="8" width="17" height="4.5" rx="1"/><path d="M5 12.5V20h14v-7.5M12 8v12M12 8c-1.5-3.5-5.5-3.5-5.5-1S10 8 12 8zm0 0c1.5-3.5 5.5-3.5 5.5-1S14 8 12 8z"/>',
+    phone:'<rect x="7" y="3" width="10" height="18" rx="2.2"/><path d="M11 18h2"/>'
+  };
+  var toastH;
+  function toast(m){ var x=$("toast"); x.textContent=m; x.classList.add("on"); clearTimeout(toastH); toastH=setTimeout(function(){ x.classList.remove("on"); },1800); }
+  function plural(n,f){ var m=n%100; if(m>=11&&m<=14) return f[2]; var d=n%10; return d===1?f[0]:(d>=2&&d<=4?f[1]:f[2]); }
+
+  // ── Telegram WebApp (same behaviour as the panel page) ─────────────
+  var TG = null;
+  var TGPROXY = !!(window.TelegramWebviewProxy && window.TelegramWebviewProxy.postEvent);
+  var TGLAUNCH = /[?&#]tgWebApp(Data|Platform|Version)=/.test(location.hash + location.search);
+  var INTG = TGPROXY || TGLAUNCH;
+  function tgEvent(type,data){
+    data=data||{};
+    try{
+      if(TGPROXY){ window.TelegramWebviewProxy.postEvent(type,JSON.stringify(data)); return true; }
+      if(window.parent&&window.parent!==window){ window.parent.postMessage(JSON.stringify({eventType:type,eventData:data}),"https://web.telegram.org"); return true; }
+    }catch(e){}
+    return false;
+  }
+  function tgOpen(url){
+    // Telegram's openLink only carries http(s): a custom scheme (vless:, happ:,
+    // anytls:…) handed to it comes back prefixed with http:// in the webview.
+    // Those fall through to the caller, which navigates the webview itself and
+    // lets the OS scheme handler take over.
+    if(TG){ try{ if(url.indexOf("https://t.me/")===0) TG.openTelegramLink(url); else if(url.indexOf("tg://")===0||/^https?:/i.test(url)) TG.openLink(url); else return false; return true; }catch(e){} }
+    if(url.indexOf("https://t.me/")===0){ var a=document.createElement("a"); a.href=url; return tgEvent("web_app_open_tg_link",{path_full:a.pathname+a.search}); }
+    return tgEvent("web_app_open_link",{url:url});
+  }
+  function openExternal(url){ url=safe(url); if(url==="#") return; if(INTG&&tgOpen(url)) return; window.location=url; }
+  // Custom-scheme anchors (vless:, hysteria2:, anytls:…) must not go through the
+  // webview's default anchor navigation: Telegram's in-app browser rewrites an
+  // unknown scheme to http://… — navigate top-level instead so the OS handler fires.
+  // Bubble phase on purpose: an anchor with its own onclick (apps modal, wizard)
+  // preventDefaults first, and defaultPrevented tells us to stay out of its way.
+  // Only "ownerless" custom-scheme anchors (the fold Open buttons) get rerouted.
+  document.addEventListener("click",function(e){
+    if(e.defaultPrevented) return;
+    var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;
+    if(!a) return;
+    var h=a.getAttribute("href")||"";
+    if(!/^[a-z][a-z0-9+.-]*:/i.test(h)||/^https?:/i.test(h)||/^tg:/i.test(h)) return;
+    e.preventDefault();
+    openExternal(h);
+  });
+  function haptic(kind){ try{ if(TG&&TG.HapticFeedback){ if(kind==="success"||kind==="error") TG.HapticFeedback.notificationOccurred(kind); else TG.HapticFeedback.impactOccurred(kind||"light"); } }catch(e){} }
+  function initTG(){
+    TG=(window.Telegram&&window.Telegram.WebApp)||null;
+    INTG=!!(TG&&TG.platform&&TG.platform!=="unknown")||TGPROXY||TGLAUNCH;
+    if(!INTG) return;
+    if(TG){ try{ TG.ready(); TG.expand(); }catch(e){} } else { tgEvent("web_app_ready"); tgEvent("web_app_expand"); }
+    if(!TG) return;
+    var v=function(x){ return TG.isVersionAtLeast&&TG.isVersionAtLeast(x); }, bg="#f2f7fe";
+    try{ if(v("6.1")) TG.setHeaderColor(v("6.9")?bg:"bg_color"); }catch(e){}
+    try{ if(v("6.1")) TG.setBackgroundColor(bg); }catch(e){}
+    try{ if(v("7.10")&&TG.setBottomBarColor) TG.setBottomBarColor(bg); }catch(e){}
+    if(!TG.BackButton||!v("6.1")) return;
+    var top=function(){ var o=document.querySelectorAll(".modal.show"); return o.length?o[o.length-1]:null; };
+    var sync=function(){ try{ if(top()||state.tab!=="sub") TG.BackButton.show(); else TG.BackButton.hide(); }catch(e){} };
+    TG.BackButton.onClick(function(){ var m=top(); if(m) closeModal(m.id); else showTab("sub"); sync(); });
+    if(window.MutationObserver) new MutationObserver(sync).observe(document.body,{subtree:true,attributes:true,attributeFilter:["class"]});
+    sync();
+  }
+
+  // ── state, load ─────────────────────────────────────────────────
+  var state = { v:null, tab:"sub", plan:0, periods:1, extra:{}, topup:0, wz:1 };
+  var SUB = "";  // subscription URL (also the base of qr.png, logo.svg, tg.js, /app/<i>)
+
+  function load(){
+    applyStatic(); buildLang();
+    if(!TOKEN){ return boot(window.__VIEW_DEMO__||window.__VIEW_MOCK__); }
+    fetch("api/view?t="+encodeURIComponent(TOKEN)+"&lang="+LANG)
+      .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function(j){ boot(j.data||j); })
+      .catch(function(e){ $("boot").innerHTML='<p style="color:var(--red)">Не удалось загрузить подписку ('+esc(e.message)+').<br>Откройте ссылку из бота ещё раз.</p>'; });
+  }
+  function boot(v){
+    if(!v){ $("boot").innerHTML="<p>Нет данных подписки.</p>"; return; }
+    state.v=v; SUB=(v.sub_url||"").replace(/\/+$/,"");
+    if(SUB){ var s=document.createElement("script"); s.src=SUB+"/tg.js"; s.onload=initTG; s.onerror=initTG; document.head.appendChild(s); } else initTG();
+    render();
+    $("boot").hidden=true; $("app").hidden=false;
+    var saved=null; try{ saved=sessionStorage.getItem("rospanel.subtab"); }catch(e){}
+    showTab(saved||"sub");
+    watchPayments();
+    var msg=null; try{ msg=sessionStorage.getItem("rospanel.paidmsg"); sessionStorage.removeItem("rospanel.paidmsg"); }catch(e){}
+    if(msg) showMsg(msg,t("paid"));
+  }
+
+  function render(){
+    var v=state.v, b=v.brand||{}, name=b.name||"AmanesiaVIP";
+    document.title=name+" · Подписка";
+    // wordmark: "AmanesiaVIP" → AMANESIA + red VIP (a trailing all-caps run gets the accent)
+    var m=/^(.*?[a-zа-яё])([A-ZА-ЯЁ0-9]{2,})$/.exec(name);
+    $("brandWord").innerHTML=m?esc(m[1])+"<em>"+esc(m[2])+"</em>":esc(name);
+    $("brandWord").setAttribute("aria-label",name);
+    if(USE_PANEL_LOGO&&SUB){
+      var url=SUB+"/logo.svg", probe=new Image();
+      probe.onload=function(){ each(document.querySelectorAll(".brand-logo"),function(i){ i.src=url; }); $("favIcon").href=url; $("favIcon").removeAttribute("type"); };
+      probe.src=url;
+    }
+    renderStatus(); renderNotices(); renderSub(); renderDevices(); renderFolds(); renderBlocks();
+    renderPay(); renderRef(); renderFooter(); renderTabsVisibility();
+  }
+
+  // ── hero ────────────────────────────────────────────────────────
+  function renderStatus(){
+    var v=state.v, tx=v.texts||{};
+    // приветствие: то же правило, что у страницы панели, — имя пустое значит «Привет 👋»
+    var nm=String(v.name||"").trim(), hn=$("hero");
+    hn.textContent=(nm?t("greeting_name").replace("%s",function(){ return nm; }):t("greeting"))+" 👋";
+    hn.hidden=false;
+    // идентификатор: user_id добавляет subproxy, в самом view панели его нет
+    var ub=$("uid"), uid=v.user_id;
+    ub.innerHTML="";
+    if(uid!=null&&uid!==""){
+      ub.appendChild(el("span","k",esc(t("uid"))));
+      ub.appendChild(el("b","",esc(uid)));
+      var cp=iconCopy(String(uid)); cp.classList.add("uidcp"); ub.appendChild(cp);
+      ub.hidden=false;
+    } else ub.hidden=true;
+    var bd=$("badges"); bd.innerHTML="";
+    var st=v.status||"", sc=st==="active"?"g":(st==="expired"||st==="disabled"||st==="limited"?"r":"o");
+    bd.appendChild(el("span","badge "+sc,(sc==="g"?ico(IC.check):"")+esc(v.status_label||st)));
+    if(v.online) bd.appendChild(el("span","badge on",esc(t("online"))));
+    else bd.appendChild(el("span","badge off",esc(tx.last_seen||t("offline"))));
+    var pl=$("pills"); pl.innerHTML="";
+    if(v.expire_at&&tx.expire) pl.appendChild(el("span","pill",ico(IC.cal)+"<span>"+esc(t("until"))+" "+esc(tx.expire.replace(/^до\s+/,""))+"</span>"));
+    if(tx.reset) pl.appendChild(el("span","pill",ico(IC.cal)+"<span>"+esc(t("traffic_until"))+" "+esc(tx.reset)+"</span>"));
+    if(tx.used||tx.limit) pl.appendChild(el("span","pill",ico(IC.db)+"<span>"+esc(t("traffic"))+": <bdi>"+esc(tx.used||"0")+(v.limit_bytes?" / "+esc(tx.limit):"")+"</bdi></span>"));
+    pl.hidden=!pl.children.length;
+    var u=$("usage"), p=Math.max(0,Math.min(100,v.used_pct||0));
+    u.hidden=!v.limit_bytes; u.setAttribute("aria-valuenow",String(p)); u.setAttribute("aria-label",t("traffic")+" "+p+"%");
+    u.firstChild.style.width=p+"%"; u.firstChild.className=p>=95?"b":(p>=80?"w":"");
+  }
+
+  function renderNotices(){
+    var v=state.v, box=$("notices"); box.innerHTML="";
+    if(v.maintenance) box.appendChild(el("div","note warn",'<span class="ic">'+ico(IC.info)+"</span><span>"+esc(v.maintenance_text||"Ведутся технические работы — возможны перебои.")+"</span>"));
+    (v.notices||[]).forEach(function(n){
+      box.appendChild(el("div","note warn",'<span class="ic">'+ico(IC.info)+"</span><span><b>"+esc(n.title||"")+"</b>"+(n.body?"<br>"+esc(n.body):"")+"</span>"));
+    });
+  }
+
+  // ── subscription pane ───────────────────────────────────────────
+  function renderSub(){
+    var v=state.v;
+    var qr=$("qr"), tried=false;
+    qr.onerror=function(){ if(tried){ qr.style.visibility="hidden"; return; } tried=true;
+      qr.src="https://api.qrserver.com/v1/create-qr-code/?size=440x440&margin=0&data="+encodeURIComponent(SUB); };
+    qr.src=SUB?SUB+"/qr.png":"";
+    $("copySub").onclick=function(){ copyBtn(SUB,this); };
+    $("copyCab").onclick=function(){ copyBtn(SUB,this); };
+    var cl=$("clashBtn"); cl.hidden=!v.clash_url; if(v.clash_url){ cl.href=safe(v.clash_url);
+      // The Telegram webview has no download manager and swallows the navigation;
+      // target=_blank hands the URL to the external browser, which downloads it.
+      if(INTG) cl.target="_blank"; }
+    $("openApps").hidden=!(v.apps||[]).length;
+    $("openApps").onclick=openApps;
+    $("wizBtn").onclick=openWizard;
+    // apps modal
+    var list=$("appList"); list.innerHTML="";
+    (v.apps||[]).forEach(function(a,i){
+      var x=el("a","app","<span>"+esc(a.name)+'</span><span class="plat">'+esc(a.platforms||"")+"</span>");
+      // Same mechanism as the stock subscription page: the panel bounce hands the
+      // client scheme to the OS. target=_blank is the channel that actually leaves
+      // the Telegram webview (it delegates new windows to the external browser),
+      // so the bounce's auto-redirect and the download both happen out there.
+      x.href=safe(SUB+"/app/"+i);
+      x.target="_blank"; x.rel="noopener";
+      x.onclick=function(){ closeModal("apps"); return true; };
+      list.appendChild(x);
+    });
+  }
+
+  function renderDevices(){
+    var d=(state.v.devices)||{}, card=$("devCard");
+    card.hidden=!(d.show&&(d.list||[]).length);
+    if(card.hidden) return;
+    $("devTitle").textContent=t("devices")+(d.count_text?" · "+d.count_text:(d.limit?" · "+d.count+" / "+d.limit:""));
+    var rows=$("devRows"); rows.innerHTML="";
+    d.list.forEach(function(x){
+      var r=el("div","row",'<div class="grow"><div class="n">'+esc(x.title||x.name||x.hwid)+(x.current?'<span class="chipmini">'+esc(t("this_dev"))+"</span>":"")+'</div><div class="s">'+esc([x.sub,x.last].filter(Boolean).join(" · "))+"</div></div>");
+      if(!x.current){
+        var u=el("button","btn alt sm",esc(t("unbind"))); u.type="button";
+        u.onclick=function(){
+          if(!confirm(t("unbind_q"))) return;
+          var reset=busy(u);
+          post("devices/unbind",{hwid:x.hwid}).then(function(res){ if(res.ok) location.reload(); else { reset(); showMsg(res.body.error||t("err"),t("err")); } })
+            .catch(function(){ reset(); showMsg(t("net_err"),t("err")); });
+        };
+        r.appendChild(u);
+      }
+      rows.appendChild(r);
+    });
+  }
+
+  function fold(icon,title,count,fill){
+    var d=el("details","fold");
+    d.innerHTML='<summary><span class="tile">'+ico(icon)+'</span><span class="t">'+esc(title)+(count!=null?" <small>· "+count+"</small>":"")+"</span>"+ico(IC.chev,"chev")+'</summary><div class="body"></div>';
+    fill(d.querySelector(".body"));
+    return d;
+  }
+  function item(title,fill){
+    var d=el("details","item"); d.innerHTML="<summary>"+esc(title)+'</summary><div class="in"></div>';
+    fill(d.querySelector(".in")); return d;
+  }
+  function appRow(name,home){
+    var r=el("div","app-row",'<span class="name">'+esc(name)+"</span>");
+    if(home){ var a=el("a","ibtn ghost",ico(IC.info)); a.href=safe(home); a.target="_blank"; a.rel="noopener noreferrer"; a.title=t("app_page"); a.setAttribute("aria-label",t("app_page")+" — "+name);
+      a.onclick=function(e){ if(INTG){ e.preventDefault(); openExternal(home); } }; r.appendChild(a); }
+    return r;
+  }
+  function linkBtn(cls,label,href,icon){ var a=el("a","btn "+cls,(icon?ico(icon):"")+"<span>"+esc(label)+"</span>"); a.href=safe(href); return a; }
+  function copyButton(cls,label,text){ var b=el("button","btn "+cls,ico(IC.copy)+"<span>"+esc(label)+"</span>"); b.type="button"; b.onclick=function(){ copyBtn(text,b); }; return b; }
+
+  function renderFolds(){
+    var v=state.v, box=$("folds"); box.innerHTML="";
+    var awg=v.awg||[];
+    if(awg.length) box.appendChild(fold(IC.plane,t("awg"),awg.length,function(b){
+      var lead=el("div","app-row",'<p class="lead" style="margin:0">'+esc(t("awg_lead"))+"</p>");
+      var h=el("a","ibtn ghost",ico(IC.info)); h.href="https://amnezia.org/ru/downloads"; h.target="_blank"; h.rel="noopener noreferrer"; h.title=t("app_page");
+      lead.appendChild(h); lead.style.margin="0 0 8px"; b.appendChild(lead);
+      awg.forEach(function(a){ b.appendChild(item(a.name,function(c){
+        c.appendChild(el("div","qr sm",'<img loading="lazy" alt="QR" src="'+esc(a.qr_url)+'">'));
+        var d=linkBtn("alt",t("dl_conf"),a.conf_url,IC.down); d.setAttribute("download",""); if(INTG) d.target="_blank"; c.appendChild(d);
+      })); });
+    }));
+
+    var turn=v.turn||[];
+    if(turn.length) box.appendChild(fold(IC.turn,t("turn"),turn.length,function(b){
+      b.appendChild(el("p","lead",esc(t("turn_lead"))));
+      turn.forEach(function(tu){ b.appendChild(item(tu.name,function(c){
+        (tu.apps||[]).forEach(function(a){
+          c.appendChild(appRow(a.name,a.home));
+          c.appendChild(linkBtn("",t("open")+" · "+a.name.replace(/\s*\(.*\)$/,""),a.url,IC.ext));
+          c.appendChild(copyButton("alt",t("copy"),a.url));
+        });
+        c.appendChild(item(t("manual"),function(m){
+          m.appendChild(el("p","muted",esc(t("peer"))));
+          var cr=el("div","copy-row","<code>"+esc(tu.peer||"")+"</code>"); cr.appendChild(iconCopy(tu.peer||"")); m.appendChild(cr);
+          if(tu.call_link){ m.appendChild(el("p","muted",esc(tu.call_label||"Ссылка на звонок")));
+            // A real anchor, not dead text: new tab in a plain browser, direct
+            // webview navigation in the Mini App (https works there).
+            var cr2=el("div","copy-row"); var cd=el("code"); var la=el("a");
+            la.href=safe(tu.call_link); la.target="_blank"; la.rel="noopener";
+            la.style.color="inherit"; la.style.textDecoration="underline";
+            la.textContent=tu.call_link;
+            cd.appendChild(la); cr2.appendChild(cd); cr2.appendChild(iconCopy(tu.call_link)); m.appendChild(cr2); }
+          else m.appendChild(el("p","muted",esc(t("no_call"))));
+          if(tu.conf_url){ var d=linkBtn("alt",t("dl_conf"),tu.conf_url,IC.down); d.setAttribute("download",""); if(INTG) d.target="_blank"; m.appendChild(d); }
+        }));
+      })); });
+    }));
+
+    var links=(v.show_configs?v.links:null)||[];
+    if(links.length) box.appendChild(fold(IC.server,t("configs"),links.length,function(b){
+      links.forEach(function(l){ b.appendChild(item(l.name,function(c){
+        c.appendChild(el("code","code",esc(l.url)));
+        c.appendChild(copyButton("alt",t("copy"),l.url));
+      })); });
+    }));
+
+    var tg=v.telegram||[];
+    if(tg.length) box.appendChild(fold(IC.plane,t("tgp"),tg.length,function(b){
+      b.appendChild(el("p","lead",esc(t("tg_lead"))));
+      tg.forEach(function(p){ b.appendChild(item(p.name,function(c){
+        if(p.qr_url) c.appendChild(el("div","qr sm",'<img loading="lazy" alt="QR" src="'+esc(p.qr_url)+'">'));
+        var a=linkBtn("",t("add_tg"),p.link,IC.plane);
+        // In the Mini App the Telegram APIs (openLink/openTelegramLink) silently
+        // no-op on proxy links; the webview navigation to the t.me/proxy page is
+        // what actually raises Telegram's own "add proxy" sheet.
+        a.onclick=function(e){ if(!INTG) return true; e.preventDefault(); window.location=p.web_link||p.link; return false; };
+        c.appendChild(a);
+        if(p.web_link) c.appendChild(copyButton("alt",t("copy"),p.web_link));
+      })); });
+    }));
+  }
+
+  // operator blocks: markdown text, buttons, notices
+  function renderBlocks(){
+    var box=$("blocks"); box.innerHTML="";
+    (state.v.blocks||[]).forEach(function(bl){
+      if(bl.type==="button"&&bl.url){
+        var a=linkBtn("alt",bl.label||t("open"),bl.url,IC.ext); a.target="_blank"; a.rel="noopener";
+        a.onclick=function(e){ if(INTG){ e.preventDefault(); openExternal(bl.url); } };
+        var w=el("div","card"); a.style.marginTop="0"; w.appendChild(a); box.appendChild(w); return;
+      }
+      box.appendChild(el("div","card block",miniMd(bl.text||bl.html||"")));
+    });
+  }
+  function miniMd(s){
+    return esc(s).replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>")
+      .replace(/`([^`]+)`/g,"<code>$1</code>")
+      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener" style="color:var(--blue)">$1</a>')
+      .replace(/\n/g,"<br>");
+  }
+
+  // ── payment pane ────────────────────────────────────────────────
+  function renderPay(){
+    var b=state.v.billing; if(!b||!b.show) return;
+    // current plan
+    var pc=$("planCard"), h='<div class="cur"><span class="muted">'+esc(t("cur_plan"))+'</span><span class="v">'+esc(b.current_plan||"—")+"</span>"+(b.expire_text?'<span class="x">'+esc(b.expire_text)+"</span>":"")+"</div>";
+    if(b.bonus_days) h+='<p class="muted" style="margin:12px 0 0">'+esc(b.bonus_days)+"</p>";
+    if(b.note) h+='<p class="muted" style="margin:12px 0 0">'+esc(b.note)+"</p>";
+    pc.innerHTML=h;
+    if(b.renew_switch){
+      var sw=el("label","switch","<span>Автопродление</span>"), inp=document.createElement("input");
+      inp.type="checkbox"; inp.checked=!!b.auto_renew; inp.onchange=function(){ setAutoRenew(inp); }; sw.appendChild(inp); pc.appendChild(sw);
+      if(b.renew_note){ var rn=el("p","renew-note"+(b.renew_short?" short":""),esc(b.renew_note)); rn.hidden=!b.auto_renew; pc.appendChild(rn); }
+    }
+    if((b.plans||[]).length&&!b.locked){ var cb=el("button","btn",esc(t("change_plan"))); cb.type="button"; cb.onclick=openPlans; pc.appendChild(cb); }
+    if(b.cancelable){ var cx=el("button","linkbtn",esc(t("cancel_sub"))); cx.type="button"; cx.onclick=function(){ cancelSub(cx); }; pc.appendChild(cx); }
+    // wallet
+    var wc=$("walletCard");
+    wc.hidden=!b.wallet;
+    if(b.wallet){
+      wc.innerHTML='<div class="cur"><span class="muted">'+esc(t("balance"))+'</span><span class="v">'+esc(fmtBal(b.balance))+"</span></div>";
+      if(b.topup){
+        var f=el("div","inline",'<input class="field" id="topupAmount" type="number" inputmode="numeric" min="'+(b.topup_min||1)+'" placeholder="'+esc(b.topup_hint||t("topup_ph"))+'" aria-label="'+esc(t("topup"))+'">');
+        var tb=el("button","btn",esc(t("topup"))); tb.type="button"; tb.onclick=function(){ topup(tb); }; f.appendChild(tb); wc.appendChild(f);
+      }
+    }
+    // promo
+    $("promoCard").hidden=!b.promo;
+    $("promoBtn").onclick=function(){ applyPromo($("promoBtn")); };
+    // history
+    var hc=$("histCard"), hr=$("histRows"); hc.hidden=!(b.history||[]).length; hr.innerHTML="";
+    (b.history||[]).forEach(function(x){
+      hr.appendChild(el("div","row",'<div class="grow"><div class="n">'+esc(x.title)+'</div><div class="s">'+esc(x.when||x.at||"")+'</div></div><div class="amt'+(x.in?" in":"")+(x.muted?" mut":"")+'">'+esc(x.amount||"")+"</div>"));
+    });
+    // plans modal
+    var pl=$("planList"); pl.innerHTML="";
+    (b.plans||[]).forEach(function(p){
+      var d=el("div","pick"); d.id="pick-"+p.id;
+      var price=(p.old_price?"<s>"+esc(p.old_price)+"</s>":"")+esc(p.label||"");
+      d.innerHTML='<button type="button" class="pick-head"><span class="info"><span class="pn">'+esc(p.name)+'</span><span class="pp">'+price+"</span>"+
+        (p.promo?'<span class="promo">'+esc(p.promo)+"</span>":"")+(p.current?'<span class="cur-tag">'+esc(t("current"))+"</span>":"")+'</span><span class="dot"></span></button><div class="pick-body" hidden></div>';
+      var body=d.querySelector(".pick-body");
+      if((p.options||[]).length){
+        var s=el("select","field"); s.id="per-"+p.id;
+        p.options.forEach(function(o){ var op=document.createElement("option"); op.value=o.periods; op.textContent=o.label||((o.periods===1?"1 период":o.periods+" периода")+" · "+(o.price||"")); op.setAttribute("data-btn",o.button||p.button||t("pay")); op.setAttribute("data-fb",o.from_balance?"1":""); s.appendChild(op); });
+        s.onchange=function(){ var o=s.options[s.selectedIndex]; pbtn.textContent=o.getAttribute("data-btn"); pbtn.setAttribute("data-fb",o.getAttribute("data-fb")||""); };
+        body.appendChild(s);
+      }
+      if((p.devices||[]).length){
+        var ds=el("select","field"); ds.id="dev-"+p.id;
+        p.devices.forEach(function(o){ var op=document.createElement("option"); op.value=o.extra; op.textContent=o.label; ds.appendChild(op); });
+        ds.onchange=function(){ pbtn.textContent=(parseInt(ds.value,10)||0)>0?t("pay"):(p.button||t("pay")); };
+        body.appendChild(ds);
+      }
+      var pbtn=el("button","btn",esc(p.from_balance?(p.button||t("from_balance")):(p.button||t("pay")))); pbtn.type="button";
+      pbtn.setAttribute("data-fb",p.from_balance?"1":"");
+      pbtn.onclick=function(){ buyPlan(p.id,pbtn); };
+      body.appendChild(pbtn);
+      d.querySelector(".pick-head").onclick=function(){ pickPlan(p.id); };
+      pl.appendChild(d);
+    });
+    // payment methods modal
+    var pm=$("payList"); pm.innerHTML="";
+    (b.providers||[]).forEach(function(p){
+      var k=(p.key||"").toLowerCase(), icon=/crypto|ton|usdt/.test(k)?IC.coin:(/star/.test(k)?IC.star:(/yoomoney|wallet|qiwi/.test(k)?IC.wallet:IC.card));
+      var x=el("button","pm",'<span class="tile">'+ico(icon)+"</span><span>"+esc(p.label||p.key)+"</span>"+ico(IC.right,"arr")); x.type="button";
+      x.onclick=function(){ payWith(p.key,x); };
+      pm.appendChild(x);
+    });
+  }
+  function fmtBal(s){ s=String(s==null?"0":s); return /₽|\$|€|★/.test(s)?s:s+" ₽"; }
+
+  // ── referrals pane ──────────────────────────────────────────────
+  function renderRef(){
+    var b=state.v.billing||{}, c=$("refCard");
+    renderRefFaq(b);
+    if(!b.ref_link){ c.innerHTML=""; return; }
+    c.innerHTML='<div class="cur ref-head"><span class="v">'+esc(t("invite"))+'</span><span class="x">'+esc(b.ref_hint||"")+"</span></div>";
+    var cr=el("div","copy-row","<code>"+esc(b.ref_link)+"</code>"); cr.style.marginTop="14px"; cr.appendChild(iconCopy(b.ref_link)); c.appendChild(cr);
+    if(b.ref_share){ var sh=el("button","btn",ico(IC.gift)+"<span>"+esc(t("share"))+"</span>"); sh.type="button"; sh.onclick=function(){ openExternal(b.ref_share); }; c.appendChild(sh); }
+    if(b.ref_stats) c.appendChild(el("p","muted",esc(b.ref_stats))).style.margin="12px 0 0";
+    var inv=b.invitees||[];
+    if(inv.length){
+      var rows=el("div",""); rows.style.marginTop="8px";
+      inv.forEach(function(x){ rows.appendChild(el("div","row",'<div class="grow"><div class="n">'+esc(x.name||x.title||"—")+'</div><div class="s">'+esc(x.sub||x.when||x.at||"")+"</div></div>"+(x.paid?'<span class="chipmini">оплатил</span>':""))); });
+      if(b.invitees_more) rows.appendChild(el("div","row",'<div class="s">'+esc(b.invitees_more)+"</div>"));
+      c.appendChild(rows);
+    }
+  }
+
+  function renderRefFaq(b){
+    var faq=$("refFaq"); faq.innerHTML=""; faq.hidden=!b.ref_link;
+    if(faq.hidden) return;
+    var title=el("h3","",esc(t("ref_faq_title"))); title.id="refFaqTitle"; faq.appendChild(title);
+    faq.appendChild(el("p","intro",esc(t("ref_faq_intro"))));
+    ["invite","reward","withdraw","min","when","spend","missing"].forEach(function(key){
+      var answer=key==="reward"&&b.ref_hint?b.ref_hint:t("ref_faq_"+key+"_a");
+      var entry=item(t("ref_faq_"+key+"_q"),function(body){ body.appendChild(el("p","",esc(answer))); });
+      entry.open=false;
+      faq.appendChild(entry);
+    });
+    var help=el("div","help","<span>"+esc(t("ref_faq_help"))+"</span>");
+    var link=el("a","",esc(t("ref_faq_support")));
+    link.href="https://t.me/amanesia_support_bot"; link.target="_blank"; link.rel="noopener noreferrer";
+    link.onclick=function(e){ if(INTG){ e.preventDefault(); openExternal(link.href); } };
+    help.appendChild(link); faq.appendChild(help);
+  }
+
+  function renderFooter(){
+    var v=state.v, nav=$("legal"); nav.innerHTML="";
+    function add(href,label){ if(!href) return; var a=el("a","",esc(label)); a.href=safe(href); if(/^https?:/.test(href)){ a.target="_blank"; a.rel="noopener"; a.onclick=function(e){ if(INTG){ e.preventDefault(); openExternal(href); } }; } nav.appendChild(a); }
+    add(v.tg_link,v.tg_linked?t("tg_bot"):t("tg_bind"));
+    add(v.terms_url,t("legal_terms")); add(v.privacy_url,t("legal_privacy"));
+    nav.parentNode.hidden=!nav.children.length;
+  }
+
+  // ── tabs ────────────────────────────────────────────────────────
+  function renderTabsVisibility(){
+    var b=state.v.billing||{};
+    var hasPay=!!b.show, hasRef=!!b.ref_link;
+    var tabs=document.querySelectorAll(".tab");
+    each(tabs,function(x){ var k=x.getAttribute("data-tab"); if(k==="pay") x.hidden=!hasPay; if(k==="ref") x.hidden=!hasRef; });
+    $("tabs").hidden=!hasPay&&!hasRef;
+  }
+  function showTab(name){
+    var ok=false; each(document.querySelectorAll(".tab"),function(x){ if(x.getAttribute("data-tab")===name&&!x.hidden) ok=true; });
+    if(!ok) name="sub";
+    state.tab=name;
+    each(document.querySelectorAll(".tab"),function(x){ x.setAttribute("aria-selected",String(x.getAttribute("data-tab")===name)); });
+    each(document.querySelectorAll(".pane"),function(p){ p.hidden=p.getAttribute("data-pane")!==name; });
+    try{ sessionStorage.setItem("rospanel.subtab",name); }catch(e){}
+  }
+  window.showTab=showTab;
+  each(document.querySelectorAll(".tab"),function(x){ x.onclick=function(){ showTab(x.getAttribute("data-tab")); haptic(); }; });
+
+  // ── modals ──────────────────────────────────────────────────────
+  function openModal(id){ $(id).classList.add("show"); }
+  function closeModal(id){ $(id).classList.remove("show"); if(id==="msgmodal"&&RELOAD_ON_CLOSE) location.reload(); }
+  each(document.querySelectorAll(".modal"),function(m){
+    m.addEventListener("click",function(e){ if(e.target===m) closeModal(m.id); });
+    each(m.querySelectorAll("[data-close]"),function(x){ x.onclick=function(){ closeModal(m.id); }; });
+  });
+  document.addEventListener("keydown",function(e){ if(e.key!=="Escape") return; var o=document.querySelectorAll(".modal.show"); if(o.length) closeModal(o[o.length-1].id); });
+  function openApps(){ openModal("apps"); }
+
+  // wizard: install → add → connect
+  function wzDetect(){
+    var ua=navigator.userAgent||"", p=(TG&&TG.platform)||"";
+    if(/iPhone|iPad|iPod/.test(ua)||p==="ios"||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1)) return "ios";
+    if(/Android/.test(ua)||p==="android") return /\bTV\b|AFT|BRAVIA|SMART-TV/i.test(ua)?"tv":"android";
+    if(/Mac OS X|Macintosh/.test(ua)||p==="macos") return "macos";
+    if(/Windows/.test(ua)) return "windows";
+    if(/Linux|X11/.test(ua)) return "linux";
+    return "windows";
+  }
+  function wzPlat(key){
+    var chips=$("wzPlats"), links=$("wzLinks"); chips.innerHTML=""; links.innerHTML="";
+    PLATS.forEach(function(p){
+      var c=el("button","chip"+(p[0]===key?" on":""),esc(p[1])); c.type="button"; c.onclick=function(){ wzPlat(p[0]); haptic(); }; chips.appendChild(c);
+      if(p[0]===key) p[2].forEach(function(l){ var b=el("button","btn alt",ico(IC.down)+"<span>"+esc(l[0])+"</span>"); b.type="button"; b.onclick=function(){ openExternal(l[1]); }; links.appendChild(b); });
+    });
+  }
+  function wzShow(){
+    each(document.querySelectorAll("#wizard .wz-step"),function(s){ s.hidden=parseInt(s.getAttribute("data-step"),10)!==state.wz; });
+    each(document.querySelectorAll("#wizard .steps i"),function(s,i){ s.classList.toggle("on",i<state.wz); });
+    $("wzTitle").textContent=t("wz_t"+state.wz);
+    $("wzBack").style.visibility=state.wz>1?"visible":"hidden";
+    $("wzNext").textContent=state.wz<3?t("next"):t("done");
+  }
+  function openWizard(){
+    var happ=(state.v.apps||[]).filter(function(a){ return /^happ$/i.test(a.name); })[0]||(state.v.apps||[])[0];
+    var add=$("wzAdd");
+    if(happ){ add.href=safe(happ.url); add.onclick=function(e){ if(!INTG) return true; e.preventDefault(); var i=(state.v.apps||[]).indexOf(happ); var bounce=SUB+"/app/"+i; if(!tgOpen(bounce)) window.location=bounce; return false; }; }
+    $("wzOther").onclick=function(){ closeModal("wizard"); openApps(); };
+    state.wz=1; wzPlat(wzDetect()); wzShow(); openModal("wizard");
+  }
+  $("wzBack").onclick=function(){ state.wz=Math.max(1,state.wz-1); wzShow(); };
+  $("wzNext").onclick=function(){ if(state.wz===3){ closeModal("wizard"); return; } state.wz++; wzShow(); };
+
+  // plans
+  function openPlans(){
+    var picks=document.querySelectorAll("#planList .pick");
+    if(picks.length===1) pickPlan(picks[0].id.slice(5));
+    openModal("plansmodal");
+  }
+  function pickPlan(id){
+    each(document.querySelectorAll("#planList .pick"),function(p){ var on=p.id==="pick-"+id; p.classList.toggle("on",on); p.querySelector(".pick-body").hidden=!on; });
+    haptic();
+  }
+
+  // ── actions (through the same proxy the current page uses) ───────
+  function post(leaf,data){
+    return fetch("api/sub/"+leaf+(TOKEN?"?t="+encodeURIComponent(TOKEN):""),{
+      method:"POST", headers:{"Content-Type":"application/json","X-RosPanel-Sub":"1"}, body:JSON.stringify(data||{})
+    }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return { ok:r.ok, body:j||{} }; }); });
+  }
+  function busy(b){ var old=b?b.innerHTML:""; if(b){ b.textContent="…"; b.disabled=true; } return function(){ if(b){ b.innerHTML=old; b.disabled=false; } }; }
+  // Where the payer lands after a hosted-form payment: inside the Mini App that is
+  // the Mini App entrance (the external browser hands it back to Telegram), in a
+  // plain browser — this very page, token and all.
+  function retURL(){ return (INTG&&state.v&&state.v.miniapp_url)?state.v.miniapp_url:location.href; }
+  var RELOAD_ON_CLOSE=false;
+  function showMsg(text,title){
+    haptic(title===t("err")?"error":"success");
+    $("msgBody").textContent=text; $("msgTitle").textContent=title||"Оплата"; openModal("msgmodal");
+  }
+  function providers(){ return ((state.v.billing||{}).providers||[]).map(function(p){ return p.key; }); }
+
+  function buyPlan(id,btn){
+    var per=$("per-"+id), dev=$("dev-"+id);
+    var n=per?(parseInt(per.value,10)||1):1;
+    state.extra=dev?{devices:parseInt(dev.value,10)||0}:{};
+    if(btn.getAttribute("data-fb")==="1"&&!(state.extra.devices>0)) payBalance(id,btn,n);
+    else pay(id,btn,n);
+  }
+  function pay(id,btn,n){
+    state.topup=0; state.periods=n||1;
+    var pv=providers();
+    if(pv.length<=1) startPay(id,pv[0]||"",btn,state.periods);
+    else { state.plan=id; openModal("paymodal"); }
+  }
+  function payWith(provider,btn){
+    closeModal("paymodal");
+    if(state.topup){ var a=state.topup; state.topup=0; startTopup(a,provider,btn); return; }
+    startPay(state.plan,provider,btn,state.periods);
+  }
+  function handlePay(res,reset){
+    reset();
+    if(res.ok&&res.body.pay_url){ closeModal("plansmodal"); openExternal(res.body.pay_url); markPayStarted(); watchPayments(); }
+    else if(res.ok&&res.body.manual) showMsg(res.body.message||t("order_ok"),t("order"));
+    else if(res.ok&&res.body.message){ RELOAD_ON_CLOSE=true; showMsg(res.body.message,t("paid")); }
+    else showMsg(res.body.error||t("pay_err"),t("err"));
+  }
+  function startPay(id,provider,btn,n){
+    var reset=busy(btn);
+    post("pay",Object.assign({plan_id:id,provider:provider,periods:n||1,expire_at:state.v.expire_at||0,return_url:retURL()},state.extra))
+      .then(function(res){ handlePay(res,reset); }).catch(function(){ reset(); showMsg(t("net_err"),t("err")); });
+  }
+  function payBalance(id,btn,n){
+    var reset=busy(btn);
+    post("pay",Object.assign({plan_id:id,balance:true,expire_at:state.v.expire_at||0,periods:n||1,return_url:retURL()},state.extra))
+      .then(function(res){ if(res.ok){ location.reload(); return; } reset(); showMsg(res.body.error||t("pay_err"),t("err")); })
+      .catch(function(){ reset(); showMsg(t("net_err"),t("err")); });
+  }
+  function topup(btn){
+    var inp=$("topupAmount"), b=state.v.billing||{}, amount=parseInt(inp&&inp.value,10);
+    if(!amount||amount<(b.topup_min||1)){ if(inp) inp.focus(); return; }
+    var pv=providers();
+    if(pv.length<=1) startTopup(amount,pv[0]||"",btn);
+    else { state.topup=amount; openModal("paymodal"); }
+  }
+  function startTopup(amount,provider,btn){
+    var reset=busy(btn);
+    post("topup",{amount:amount,provider:provider,return_url:retURL()}).then(function(res){ handlePay(res,reset); }).catch(function(){ reset(); showMsg(t("net_err"),t("err")); });
+  }
+  function applyPromo(btn){
+    var inp=$("promoCode"), code=inp.value.trim(); if(!code){ inp.focus(); return; }
+    var reset=busy(btn);
+    post("promo",{code:code}).then(function(res){ reset();
+      if(res.ok){ RELOAD_ON_CLOSE=true; showMsg(res.body.message||"OK",t("promo_t")||"Промокод"); } else showMsg(res.body.error||t("pay_err"),t("err"));
+    }).catch(function(){ reset(); showMsg(t("net_err"),t("err")); });
+  }
+  function setAutoRenew(box){
+    box.disabled=true;
+    post("autorenew",{on:box.checked}).then(function(res){
+      box.disabled=false;
+      if(!res.ok){ box.checked=!box.checked; showMsg(res.body.error||t("pay_err"),t("err")); return; }
+      var n=document.querySelector(".renew-note"); if(n) n.hidden=!box.checked;
+    }).catch(function(){ box.disabled=false; box.checked=!box.checked; showMsg(t("net_err"),t("err")); });
+  }
+  function cancelSub(btn){
+    if(!confirm(t("cancel_q"))) return;
+    var reset=busy(btn);
+    post("cancel",{}).then(function(res){ if(res.ok) location.reload(); else { reset(); showMsg(res.body.error||t("err"),t("err")); } })
+      .catch(function(){ reset(); showMsg(t("net_err"),t("err")); });
+  }
+
+  // payment watcher: the panel reports a live order at <sub>/order (proxied as api/sub/order)
+  var pm={on:false,ever:false,order:0};
+  function markPayStarted(){ $("paywatch").hidden=false; }
+  function checkOrder(){
+    if(!TOKEN){ pm.on=false; return; }
+    fetch("api/sub/order?t="+encodeURIComponent(TOKEN)).then(function(r){ return r.json(); }).then(function(j){
+      if(j&&j.pending){ pm.ever=true; pm.order=j.order_id||pm.order; $("paywatch").hidden=false; setTimeout(checkOrder,4000); return; }
+      $("paywatch").hidden=true;
+      if(pm.ever){
+        pm.ever=false;
+        if(j&&j.done&&j.done.order_id===pm.order){ try{ sessionStorage.setItem("rospanel.paidmsg",j.done.message); }catch(e){} }
+        location.reload();
+      } else pm.on=false;
+    }).catch(function(){ setTimeout(checkOrder,8000); });
+  }
+  function watchPayments(){ if(pm.on) return; pm.on=true; checkOrder(); }
+
+  // ── copy ────────────────────────────────────────────────────────
+  function writeClip(s){
+    if(navigator.clipboard&&navigator.clipboard.writeText) return navigator.clipboard.writeText(s);
+    return new Promise(function(ok,no){ var ta=document.createElement("textarea"); ta.value=s; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand("copy")?ok():no(); }catch(e){ no(e); } document.body.removeChild(ta); });
+  }
+  function copyBtn(s,b){
+    writeClip(s).then(function(){
+      haptic("success");
+      var span=b.querySelector("span:last-child")||b, old=span.textContent; span.textContent=t("copied");
+      setTimeout(function(){ span.textContent=old; },1200);
+    },function(){ toast(t("copy_manual")); });
+  }
+  function iconCopy(s){
+    var b=el("button","ibtn",'<svg class="i cp" viewBox="0 0 24 24">'+IC.copy+'</svg><svg class="i done" viewBox="0 0 24 24">'+IC.check+"</svg>");
+    b.type="button"; b.title=t("copy"); b.setAttribute("aria-label",t("copy"));
+    b.onclick=function(){ writeClip(s).then(function(){ haptic("success"); b.classList.add("ok"); setTimeout(function(){ b.classList.remove("ok"); },1200); },function(){ toast(t("copy_manual")); }); };
+    return b;
+  }
+
+  // ── language picker ─────────────────────────────────────────────
+  function buildLang(){
+    $("langName").textContent=LANG_NAMES[LANG];
+    var ul=$("langList"), btn=$("langBtn"); ul.innerHTML="";
+    LANGS().forEach(function(k){
+      var li=el("li"), b=el("button","",esc(LANG_NAMES[k])); b.type="button"; b.setAttribute("aria-current",String(k===LANG));
+      b.onclick=function(){ lsSet("amn-lang",k); Q.set("lang",k); location.search=Q.toString(); };
+      li.appendChild(b); ul.appendChild(li);
+    });
+    btn.onclick=function(e){ e.stopPropagation(); ul.hidden=!ul.hidden; btn.setAttribute("aria-expanded",String(!ul.hidden)); };
+    document.addEventListener("click",function(){ ul.hidden=true; btn.setAttribute("aria-expanded","false"); });
+  }
+
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",load); else load();
+})();
+</script>
+<script src="mock-redesign.js" onerror="void 0"></script>
+</body>
+</html>

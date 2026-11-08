@@ -1,0 +1,7 @@
+# Build output. The deploy artefact is rebuilt by _sp_uid.ps1 and never committed:
+# the server keeps its own archives under /root/backups/.
+subproxy
+subproxy-linux-amd64
+subproxy_linux_amd64
+subproxy.exe
+subproxy-local-test.exe
