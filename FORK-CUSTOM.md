@@ -49,13 +49,34 @@
 - `internal/core/manager_alerts.go` (+тест), `internal/model/alert.go`, `internal/store/alerts.go`, миграция `0138_alert_rules.sql` (+ `testdata/migrations.sha256`), `internal/server/panel_alerts.go`, `api_v1.go`/`api_v1_perms.go`/`openapi.go`/`audit.go`/`panel.go`, `web/src/AlertsPanel.tsx`, `web/src/api.ts`, i18n-блоки алертов во всех локалях, `internal/plugin/builder/events.go`, `manager_nodes_notify.go`, `manager_events.go`.
 - При merge: миграции и `migrations.sha256` сверять особо (upstream добавляет свои номера).
 
-## 7. Вне репозитория (не терять при обновлениях)
-- Страница подписки: `c:\github\1\Aweb\subpage\index-redesign.html` → мастер `/opt/subproxy/static/index.html` (subproxy :8444). Кастом: MiniApp-обработка ссылок (webview-навигация для tg:// и VPN-схем, `target=_blank` для импортов/скачиваний), self-hosted шрифты Onest/Unbounded (внешние CDN запрещены: render-blocking убивает страницу при blackhole), `scrollbar-gutter:stable`, `return_url`.
-- subproxy: `c:\github\1\Aweb\subproxy\main.go` — карта статики (logo.png, bg-dragon.png, apple-touch-icon.png, fonts/*).
-- Парки/деплои: бэкапы живых страниц `_work/live-subpage-prev-*.html`; бэкапы бинарей на мастере `/root/backups/`, `/opt/subproxy/subproxy.bak-*`.
+## 7. Страница подписки и subproxy (с 08.11.2026 — ВНУТРИ репозитория)
+- Страница подписки: `subpage/index-redesign.html` → мастер `/opt/subproxy/static/index.html` (subproxy :8444). Кастом: MiniApp-обработка ссылок (webview-навигация для tg:// и VPN-схем, `target=_blank` для импортов/скачиваний), self-hosted шрифты Onest/Unbounded (внешние CDN запрещены: render-blocking убивает страницу при blackhole), `scrollbar-gutter:stable`, `return_url`, приветствие и ID (§7.1).
+- `subproxy/` — ОТДЕЛЬНЫЙ вложенный Go-модуль (`module subproxy`), НЕ часть модуля панели: `go list ./...` из корня его не видит, поэтому `go build/vet/test ./...` и golangci-lint в CI его не трогают. Плата за это — его тесты в CI тоже не запускаются; гейт локальный: `cd subproxy && gofmt -l . && go vet ./... && go test ./...` (его же прогоняет `_sp_uid.ps1 -Build`). Бинари не коммитятся (`subproxy/.gitignore`).
+- Деплой: `_sp_uid.ps1 -All` (гейты → linux-сборка → pscp страницы и бинаря → `_sp_uid.sh` на мастере: бэкап → статика → swap бинаря → restart → self-test). Пароль — из `$env:TEMP\rp_uid_pw.txt`, в репозитории не хранится. Локальный preview: `_work/subpage-preview/`. Бэкапы живых страниц: `_work/live-subpage-prev-*.html`, `_work/live-check.html`; бэкапы на мастере: `/root/backups/`.
+- При merge upstream конфликтов не даёт: каталогов `subpage/` и `subproxy/` у апстрима нет.
+
+### 7.1 Приветствие и ID пользователя на странице подписки (08.11.2026)
+Проблема: дефолтная страница панели приветствует пользователя по имени (`internal/sub/page.html`: `{{if .Name}}{{printf .L.GreetingName .Name}}{{else}}{{.L.Greeting}}{{end}} 👋`), а кастомная страница не выводила ни имени, ни ID — `renderStatus()` строил только бейджи, плашки и полосу трафика.
+- Имя в API уже было: `sub.View.Name` (`internal/sub/view.go`) → `data.name`. Правка чисто фронтовая.
+- ID в `sub.View` НЕТ (28 полей, ни одного id) и дефолтная страница его тоже не показывает. Единственная утечка `u<id>` — внутрь ссылок naive/mieru (`naive+https://u5:…@host`), и только при `show_configs`; парсить это нельзя. Поэтому ID добавляет subproxy, который и так резолвит его первым шагом `/api/view`.
+- `subproxy/main.go`: `withIdentity(body, id)` в `handleView` — декодирует ответ панели (`json.Decoder` + `UseNumber()`, иначе таймстемпы уезжают в экспоненциальную форму), дописывает `data.user_id`, всё непонятное отдаёт как было. Тесты: `subproxy/main_test.go` (сохранность view + passthrough).
+- `subpage/index-redesign.html`: `.hero-row` (flex, baseline, wrap) в `<section class="status">` — `<h1 id="hero">` «Привет, <имя> 👋» и СРАЗУ ЗА НИМ `#uid` с «ID», числом в моноширинной плашке и иконкой копирования (`iconCopy` + класс `uidcp`). Пустое имя → просто «Привет 👋» (то же правило, что у панели). Ключи i18n `greeting`/`greeting_name`/`uid` в RU и `I18N.en`.
+- Задеплоено на мастер 08.11.2026: страница sha256 `f6bfbf7f…42077` (94581 b). Проверено: `/api/view` → `name='Евген'`, `user_id=5`, `expire_at` без экспоненты; rospanel active.
+
+### 7.2 Маршрут `/old` убран — редизайн единственный (08.11.2026)
+Решение владельца: предыдущая кастомная страница не нужна, окончательная — текущий редизайн.
+- `subproxy/main.go`: из карты статики `handleStatic` удалена запись `"/old": "index-old.html"`; маршрут и прямой путь `/index-old.html` отдают 404.
+- `/opt/subproxy/static/index-old.html` удалён с сервера. Архив: `/root/backups/subpage-uid-20261108-164501/static/index-old.html` (67801 b, от 14.10.2026) и `_work/live-subpage-prev-*.html`.
+- `_sp_uid.sh`: убрана строка, которая воссоздавала `index-old.html` из текущего `index.html` (иначе файл возвращался бы при каждом деплое); добавлен `rm -f` и проверка, что `/old` и `/index-old.html` отвечают 404.
+
+### 7.3 Исходники перенесены в репозиторий (08.11.2026)
+Причина: `subpage/` и `subproxy/` не были под git и жили только копией на машине — при переезде workspace папка `subpage/` уже один раз исчезла бесследно, восстанавливать пришлось из `_work/live-check.html`.
+- `c:\.U\Aweb\subproxy\{main.go,main_test.go,go.mod}` → `subproxy/`, `c:\.U\Aweb\subpage\index-redesign.html` → `subpage/`. Рабочие копии вне репозитория УДАЛЕНЫ (сверялись по sha256 до удаления: всё идентично, кроме добавленного в `main.go` doc-комментария), чтобы не получить две расходящиеся версии. Удалены и лежалые бинари (`subproxy.exe`, `subproxy_linux_amd64`).
+- `_sp_uid.ps1` — новый драйвер деплоя под репозиторные пути; заменяет `_sp_v2.ps1`/`_sp_bin.ps1` (оба указывали на мёртвые `c:\github\1\Aweb\…`).
+- Бинарь на мастере пересобран из репозиторного исходника: sha256 `9511543b…77cb`, деплой 16:58 UTC, бэкап `/root/backups/subpage-uid-20261108-165818/`. Self-test: `/` → 200 (94581 b, hero/uid), `/old` и `/index-old.html` → 404, `/etc/passwd` → 404, `/api/view` → `user_id` на месте, rospanel active.
 
 ## 8. Чек-лист merge новой версии upstream
-1. `git fetch upstream --tags`; изучить diff upstream-тега против файлов разделов 1–6 (`git diff v5.10.0..vX.Y.Z -- <пути>`).
+1. `git fetch upstream --tags`; изучить diff upstream-тега против файлов разделов 1–7 (`git diff v5.10.0..vX.Y.Z -- <пути>`). Каталоги `subpage/` и `subproxy/` (§7) апстрим не трогает — конфликтов не будет.
 2. Закоммитить всё незакоммиченное локально (чистое состояние перед merge).
 3. `git merge vX.Y.Z`; конфликты: `version.go` решаем в пользу НАШЕГО большего номера; код-фиксы, уже принятые upstream, удаляем как дубликаты.
 4. Проверить наличие: `.github/workflows/fork-release.yml`, `internal/decoy/templates/tonari-no-totoro/index.html`, `const Repo = "Evgenrzz/rospanel-Amn"`, REPO в `install.sh`.
