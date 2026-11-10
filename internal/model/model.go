@@ -24,14 +24,15 @@ const (
 // the sing-box/Clash node tag/name, the subscription page, and the Connections UI;
 // keeping them here as the single source stops those copies from drifting apart.
 const (
-	ProtoVLESS    = "VLESS-TCP-TLS"
-	ProtoReality  = "VLESS-XHTTP-REALITY"
-	ProtoHysteria = "HYSTERIA-UDP"
-	ProtoAWG      = "AMNEZIA-WG"
-	ProtoNaive    = "NAIVEPROXY"
-	ProtoMieru    = "MIERU"
-	ProtoAnyTLS   = "ANYTLS"
-	ProtoMTProto  = "MTPROTO"
+	ProtoVLESS       = "VLESS-TCP-TLS"
+	ProtoReality     = "VLESS-XHTTP-REALITY"
+	ProtoHysteria    = "HYSTERIA-UDP"
+	ProtoAWG         = "AMNEZIA-WG"
+	ProtoNaive       = "NAIVEPROXY"
+	ProtoMieru       = "MIERU"
+	ProtoAnyTLS      = "ANYTLS"
+	ProtoTrustTunnel = "TRUSTTUNNEL"
+	ProtoMTProto     = "MTPROTO"
 )
 
 // DeviceOnlineWindow is how long (seconds) a source IP counts as an active device.
@@ -852,6 +853,11 @@ type ProbeHit struct {
 // entry. This is the single source of that format.
 func UserEmail(id int64) string { return fmt.Sprintf("u%d", id) }
 
+// TrustTunnelLogin is the login a user's TrustTunnel client sends for the Xray email
+// u<id>. The lane shares the HTTP/2 CONNECT of NaiveProxy behind the same decoy, so the
+// login is what tells the two apart: the password is the UUID on both.
+func TrustTunnelLogin(email string) string { return "tt-" + email }
+
 // UserIDOfEmail reads a user id back out of an Xray client tag: "u" and digits only.
 func UserIDOfEmail(email string) (int64, bool) {
 	if !strings.HasPrefix(email, "u") {
@@ -1026,6 +1032,11 @@ type Settings struct {
 	// user's UUID, like NaiveProxy. A node's switch is its own (Node.AnyTLSEnabled).
 	AnyTLSEnabled bool `json:"-"`
 
+	// TrustTunnel (internal/naive, tt.go): HTTP/2 CONNECT through the decoy behind the
+	// VLESS-TCP-TLS port, like NaiveProxy, on each user's UUID under its own login
+	// (TrustTunnelLogin). A node's switch is its own (Node.TrustTunnelEnabled).
+	TrustTunnelEnabled bool `json:"-"`
+
 	// MTProto (internal/mtproto): a Telegram proxy with fake TLS on a port of its own,
 	// each user's secret derived from their UUID. A node's switch is its own
 	// (Node.MTProtoEnabled); its port and display name ride in NodeConnections.
@@ -1141,6 +1152,20 @@ type Settings struct {
 	// response sends it as moved-permanently-to so clients update after a domain
 	// move. Empty means no move.
 	SubMovedTo string `json:"-"`
+	// SubApps is the order of the page's "open in app" buttons: client keys
+	// (sub.DeepLink.Key) joined by commas, "-key" for one switched off. Empty = every
+	// app in the stock order. sub.ParseAppOrder reads it.
+	SubApps string `json:"-"`
+	// SubCustomApps are the operator's own clients on the page, each placed in
+	// SubApps by its key ("x" + ID).
+	SubCustomApps []SubCustomApp `json:"-"`
+	// SubWizardApps is the client the page's connect wizard installs on each
+	// platform: WizardPlatformKeys → a SubApps key. A platform not in it gets Happ.
+	SubWizardApps map[string]string `json:"-"`
+	// SubAppLinks are each client's download buttons, by its SubApps key and then
+	// by WizardPlatformKeys; the connect wizard offers its client's. A stock client
+	// not in the map has its built-in ones (sub.StockAppLinks), a custom one none.
+	SubAppLinks map[string]map[string][]SubAppLink `json:"-"`
 	// SubPageURL is the operator's own subscription page: a browser opening a
 	// subscription link is redirected there, {token} replaced by the user's token.
 	// Empty ⇒ the panel's own page. Apps fetching the subscription never see it.
@@ -1187,14 +1212,15 @@ type Settings struct {
 	// Per-connection display names shown in VPN clients / on the subscription page
 	// (the node label after '#' and the sing-box/Clash node tag). Empty ⇒ the
 	// default protocol label (ProtoVLESS, ProtoReality, …). See Settings.ProtoLabel.
-	VLESSName    string `json:"-"`
-	RealityName  string `json:"-"`
-	HysteriaName string `json:"-"`
-	AWGName      string `json:"-"`
-	NaiveName    string `json:"-"`
-	MieruName    string `json:"-"`
-	AnyTLSName   string `json:"-"`
-	MTProtoName  string `json:"-"`
+	VLESSName       string `json:"-"`
+	RealityName     string `json:"-"`
+	HysteriaName    string `json:"-"`
+	AWGName         string `json:"-"`
+	NaiveName       string `json:"-"`
+	MieruName       string `json:"-"`
+	AnyTLSName      string `json:"-"`
+	TrustTunnelName string `json:"-"`
+	MTProtoName     string `json:"-"`
 
 	// Anti-DPI / anti-censorship transport hardening (Settings → Connections).
 	// TLSFragment / BlockQUIC shape the GENERATED client configs (sing-box only —
@@ -2105,6 +2131,8 @@ func (s *Settings) ProtoLabelFor(proto string, u *User) string {
 		custom = s.MieruName
 	case ProtoAnyTLS:
 		custom = s.AnyTLSName
+	case ProtoTrustTunnel:
+		custom = s.TrustTunnelName
 	case ProtoMTProto:
 		custom = s.MTProtoName
 	}

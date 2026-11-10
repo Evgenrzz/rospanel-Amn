@@ -3624,6 +3624,9 @@
           "bg": {
             "type": "string"
           },
+          "dark": {
+            "$ref": "#/components/schemas/ViewColors"
+          },
           "muted": {
             "type": "string"
           },
@@ -3662,6 +3665,33 @@
         "required": [
           "question",
           "reasons"
+        ],
+        "type": "object"
+      },
+      "ViewColors": {
+        "properties": {
+          "accent": {
+            "type": "string"
+          },
+          "bg": {
+            "type": "string"
+          },
+          "muted": {
+            "type": "string"
+          },
+          "surface": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accent",
+          "text",
+          "muted",
+          "bg",
+          "surface"
         ],
         "type": "object"
       },
@@ -6056,7 +6086,7 @@
   "info": {
     "description": "External REST API for managing RosPanel users, billing and stats.",
     "title": "RosPanel API",
-    "version": "5.13.0"
+    "version": "5.14.0"
   },
   "openapi": "3.0.3",
   "paths": {

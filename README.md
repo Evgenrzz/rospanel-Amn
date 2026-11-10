@@ -9,7 +9,7 @@
 ![Release](https://img.shields.io/github/v/release/AppsGanin/rospanel?label=release&sort=semver&color=2ea44f)
 ![Downloads](https://img.shields.io/github/downloads/AppsGanin/rospanel/total?label=downloads&color=6f42c1)
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
-![Xray-core](https://img.shields.io/badge/Xray--core-v26.10.21-2b2b2b)
+![Xray-core](https://img.shields.io/badge/Xray--core-v26.11.9-2b2b2b)
 ![React](https://img.shields.io/badge/UI-React%20%2B%20Vite%20%2B%20Tailwind-61DAFB?logo=react&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Linux-555?logo=linux&logoColor=white)
 ![Deploy](https://img.shields.io/badge/deploy-single%20binary%20%7C%20Docker-2496ED?logo=docker&logoColor=white)
@@ -294,6 +294,12 @@ Throne, Exclave and Karing.
 site; the password is the user's UUID. It goes to sing-box clients, the Clash profile (mihomo
 cores that have it), v2rayN, Shadowrocket, Throne, Exclave, Karing and NekoBox, when the certificate is trusted.
 
+**TrustTunnel** (AdGuard's protocol) is a built-in lane on the VLESS-TCP-TLS port over HTTP/2,
+behind the same certificate and decoy site: TCP and UDP, the login `tt-u<id>`, the password the
+user's UUID. Requires a domain with a trusted certificate: the apps do not connect to an IP. Its
+apps (TrustTunnel for iOS, Android, macOS, the CLI client) import the `tt://` link from the
+subscription page.
+
 **MTProto (Telegram proxy)** is a built-in lane on a TCP port of its own, picked automatically, on
 by default: Telegram itself connects through the server, no VPN app needed. Fake TLS with a secret
 per user, derived from their UUID — a disabled user loses it, a UUID reset changes it. The secret
@@ -437,8 +443,11 @@ link can be **reset** (token rotation) without changing UUIDs and passwords. An
 through `happ://crypt4/…`, so the app never shows its address; the same link can be copied from
 the user's card.
 
-A **connect wizard** in 3 steps: the platform is detected, then Happ's official download (the
-Russian App Store separately for iPhone), then the subscription added with one tap. Added to the home
+A **connect wizard** in 3 steps: the platform is detected, then that platform's app is downloaded
+(Happ by default; the app is chosen per platform), then the subscription added with one tap. The
+page's **app buttons** (*Settings → Subscriptions*) can be reordered, switched off and joined by your
+own clients (name, platforms, an import link taking `{url}`, `{url_enc}` or `{url_b64}`); each app
+carries its download links per platform, pre-filled for the built-in ones. Added to the home
 screen, the page opens like an app. Inside Telegram it looks like part of it:
 the header colour, the system Back button, haptic feedback. Terms show the price per day and the
 saving.
@@ -793,9 +802,10 @@ needed; see [docs/plugins](docs/plugins/README.md) and [examples/plugins](exampl
 
 #### 🎨 Branding and theme
 
-Your own name and logo instead of "RosPanel" — in the panel and on the subscription page. An
-accent color repaints the whole interface, and **dark mode** adapts text, statuses and charts
-on its own.
+Your own name and logo instead of "RosPanel" — in the panel and on the subscription page. Two
+palettes — **light and dark**, each with its own accent, text, background and surface. The
+panel, subscription page, status page and documents show the one the system uses; the panel's
+top bar can pin one.
 
 #### 🛡️ Abuse detection
 

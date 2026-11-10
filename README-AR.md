@@ -9,7 +9,7 @@
 ![Release](https://img.shields.io/github/v/release/AppsGanin/rospanel?label=release&sort=semver&color=2ea44f)
 ![Downloads](https://img.shields.io/github/downloads/AppsGanin/rospanel/total?label=downloads&color=6f42c1)
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
-![Xray-core](https://img.shields.io/badge/Xray--core-v26.10.21-2b2b2b)
+![Xray-core](https://img.shields.io/badge/Xray--core-v26.11.9-2b2b2b)
 ![React](https://img.shields.io/badge/UI-React%20%2B%20Vite%20%2B%20Tailwind-61DAFB?logo=react&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Linux-555?logo=linux&logoColor=white)
 ![Deploy](https://img.shields.io/badge/deploy-single%20binary%20%7C%20Docker-2496ED?logo=docker&logoColor=white)
@@ -274,6 +274,11 @@ ClashMi)، ورابط `mierus://` لـ Shadowrocket وThrone وExclave وKaring.
 UUID الخاص بالمستخدم. يُقدَّم لعملاء sing-box، وملف تعريف Clash (أنوية mihomo التي تدعمه)، وv2rayN،
 وShadowrocket، وThrone، وExclave، وKaring، وNekoBox، حين تكون الشهادة موثوقة.
 
+**TrustTunnel** (بروتوكول AdGuard) مسار مدمج على منفذ VLESS-TCP-TLS عبر HTTP/2، خلف الشهادة نفسها
+وموقع التمويه نفسه: TCP وUDP، باسم الدخول `tt-u<id>` وكلمة المرور UUID المستخدم. يتطلب نطاقًا بشهادة
+موثوقة: لا تتصل التطبيقات عبر IP. تستورد تطبيقاته (TrustTunnel لـ iOS وAndroid وmacOS وعميل سطر الأوامر)
+رابط `tt://` من صفحة الاشتراك.
+
 **MTProto (وكيل Telegram)** مسار مدمج على منفذ TCP خاص به يُختار تلقائيًا، ومفعّل افتراضيًا: يتصل
 Telegram نفسه عبر الخادم دون تطبيق VPN. ‏fake TLS مع سرّ لكل مستخدم مشتق من UUID الخاص به — يفقده
 المستخدم المعطَّل، وتغيّره إعادة تعيين UUID. يحمل السرّ نطاق الخادم (SNI أو المضيف)، أو، إن لم يكن
@@ -388,8 +393,10 @@ v2RayTun) يضع نصًا قصيرًا داخل التطبيق مباشرة. **�
 يضيف زر Happ الاشتراك عبر `happ://crypt4/…`، فلا يعرض التطبيق عنوانه أبدًا؛ ويمكن نسخ الرابط نفسه
 من بطاقة المستخدم.
 
-**معالج اتصال** من 3 خطوات: تُكتشف المنصة، ثم التنزيل الرسمي لـ Happ (متجر App Store الروسي بشكل
-منفصل لـ iPhone)، ثم يُضاف الاشتراك بنقرة واحدة. عند إضافتها إلى الشاشة الرئيسية تُفتح الصفحة
+**معالج اتصال** من 3 خطوات: تُكتشف المنصة، ثم تنزيل تطبيق تلك المنصة (Happ افتراضيًا؛ يُختار
+التطبيق لكل منصة)، ثم يُضاف الاشتراك بنقرة واحدة. يمكن ترتيب **أزرار التطبيقات** في الصفحة
+(*الإعدادات ← الاشتراكات*) وتعطيلها وإضافة عملائك الخاصين (الاسم، المنصات، رابط استيراد يأخذ
+`{url}` أو `{url_enc}` أو `{url_b64}`)؛ لكل تطبيق روابط تنزيل لكل منصة، مملوءة مسبقًا للمدمجة. عند إضافتها إلى الشاشة الرئيسية تُفتح الصفحة
 كتطبيق. وداخل Telegram تبدو جزءًا منه: لون الترويسة، وزر الرجوع في النظام، والاستجابة اللمسية.
 وتعرض المدد السعر لكل يوم ومقدار التوفير.
 
@@ -707,8 +714,9 @@ Discord، HTTP، تمديد، وسم) أو محرر شيفرة، مع اختبا
 
 #### 🎨 الهوية البصرية والسمة
 
-اسمك وشعارك بدلًا من «RosPanel» — في اللوحة وفي صفحة الاشتراك. لون مميز واحد يعيد تلوين الواجهة كلها،
-و**الوضع الداكن** يكيّف النصوص والحالات والرسوم البيانية من تلقاء نفسه.
+اسمك وشعارك بدلًا من «RosPanel» — في اللوحة وفي صفحة الاشتراك. لوحتا ألوان — **فاتحة وداكنة**، لكل منهما
+لون التمييز والنص والخلفية والسطح الخاصة بها. تعرض اللوحة وصفحة الاشتراك وصفحة الحالة والمستندات ما
+يستخدمه النظام؛ ويمكن تثبيت إحداهما من الشريط العلوي للوحة.
 
 #### 🛡️ كشف إساءة الاستخدام
 
