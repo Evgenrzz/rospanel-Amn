@@ -39,12 +39,17 @@
   --blue:#1667D0; --blue-glow:#4FA3FF;
   --red:#D3141C; --red-glow:#FF5A5F;
   --green:#1F9D6B; --orange:#C7861A;
+  /* Поверхности, которые в тёмной теме не инвертируются вместе с --mist: hover
+     подсветка строки и янтарные предупреждения. Затемнение модалки — своей
+     переменной, чтобы в тёмной теме оно осталось затемнением, а не высветлением. */
+  --hover:#fff; --warn-bg:#F6E7CC; --warn-fg:#80520C; --warn-fg2:#5E3C08;
+  --scrim:color-mix(in srgb,var(--ink) 60%,transparent);
   --r-sm:10px; --r-md:18px; --r-lg:28px;
   --w:540px;
   --display:"Unbounded",system-ui,sans-serif;
   --font:"Onest",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  color-scheme:light;
+  color-scheme:light dark;
 }
 *{box-sizing:border-box}
 html{background:var(--fog);scrollbar-gutter:stable}
@@ -113,7 +118,7 @@ svg.i{width:18px;height:18px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-
 .badge .i{width:15px;height:15px;stroke-width:2.2}
 .badge.g{background:var(--green);color:#fff}
 .badge.r{background:var(--red);color:#fff}
-.badge.o{background:#F6E7CC;color:#80520C}
+.badge.o{background:var(--warn-bg);color:var(--warn-fg)}
 .badge.on,.badge.off{background:var(--mist);color:var(--ink)}
 .badge.on::before,.badge.off::before{content:"";width:8px;height:8px;border-radius:50%}
 .badge.on::before{background:var(--green);animation:ping 2.4s ease-out infinite}
@@ -139,7 +144,7 @@ svg.i{width:18px;height:18px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-
 .note .spin{flex:0 0 auto;width:18px;height:18px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--blue);
   animation:spin .8s linear infinite}
 .note .ic{flex:0 0 auto;color:var(--orange);display:grid}
-.note.warn{background:#F6E7CC;color:#5E3C08}
+.note.warn{background:var(--warn-bg);color:var(--warn-fg2)}
 .note b{color:var(--ink)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -247,7 +252,7 @@ select.field{-webkit-appearance:none;appearance:none;padding-right:42px;cursor:p
 .switch input:checked{background:var(--blue)}
 .switch input:checked::after{transform:translateX(18px)}
 .renew-note{margin:2px 0 0;font-size:13.5px;color:var(--muted)}
-.renew-note.short{color:#80520C;font-weight:600}
+.renew-note.short{color:var(--warn-fg);font-weight:600}
 .linkbtn{display:block;margin:14px auto 0;color:var(--muted);font-size:14px;text-decoration:underline;text-underline-offset:3px}
 .linkbtn:hover{color:var(--red)}
 .block p{margin:0 0 .5em}.block p:last-child{margin:0}
@@ -269,7 +274,7 @@ footer nav a:hover{color:var(--ink);text-decoration:underline;text-underline-off
 
 /* модальные окна ────────────────────────────────────────────────── */
 .modal{display:none;position:fixed;inset:0;z-index:50;align-items:center;justify-content:center;padding:16px;
-  background:color-mix(in srgb,var(--ink) 60%,transparent);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  background:var(--scrim);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .modal.show{display:flex}
 .mcard{width:100%;max-width:440px;max-height:86vh;overflow:auto;background:var(--mist);border-radius:var(--r-lg);padding:24px}
 @media (prefers-reduced-motion:no-preference){
@@ -305,7 +310,7 @@ footer nav a:hover{color:var(--ink);text-decoration:underline;text-underline-off
 .pick{border:1.5px solid var(--line);border-radius:var(--r-md);margin-top:10px;transition:border-color .2s,box-shadow .2s}
 .pick:first-of-type{margin-top:0}
 .pick:hover{border-color:var(--ink)}
-.pick.on{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue);background:#fff}
+.pick.on{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue);background:var(--hover)}
 .pick-head{display:flex;align-items:center;gap:12px;width:100%;padding:16px 18px;text-align:left;border-radius:inherit}
 .pick .info{flex:1;min-width:0;display:flex;flex-direction:column}
 .pick .pn{font:500 16px/1.3 var(--display);letter-spacing:-.02em;color:var(--ink);overflow-wrap:anywhere}
@@ -323,7 +328,7 @@ footer nav a:hover{color:var(--ink);text-decoration:underline;text-underline-off
 .paylist{display:flex;flex-direction:column;gap:8px}
 .pm{display:flex;align-items:center;gap:14px;width:100%;padding:10px 16px 10px 10px;border-radius:999px;
   border:1.5px solid var(--line);text-align:left;font-weight:600;font-size:15px;color:var(--ink);transition:border-color .2s,background .2s}
-.pm:hover{border-color:var(--blue);background:#fff}
+.pm:hover{border-color:var(--blue);background:var(--hover)}
 .pm .arr{margin-left:auto;color:var(--muted);width:18px;height:18px}
 .pm:disabled{opacity:.55}
 
@@ -331,7 +336,7 @@ footer nav a:hover{color:var(--ink);text-decoration:underline;text-underline-off
 .apps{display:flex;flex-direction:column;gap:8px}
 .app{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-radius:var(--r-md);
   border:1.5px solid var(--line);color:var(--ink);font-weight:600;text-decoration:none;transition:border-color .2s,background .2s}
-.app:hover{border-color:var(--blue);background:#fff}
+.app:hover{border-color:var(--blue);background:var(--hover)}
 .app .plat{font-size:12.5px;font-weight:400;color:var(--muted);text-align:right}
 .msgbody{margin:0;white-space:pre-line;font-size:15px;line-height:1.55;color:var(--text)}
 
@@ -368,6 +373,36 @@ footer nav a:hover{color:var(--ink);text-decoration:underline;text-underline-off
 }
 @media (max-width:420px){ .row-b{gap:6px} .pill{font-size:12.5px;padding:0 10px;gap:6px;height:28px} .pill .i{width:14px;height:14px} }
 @media (max-width:360px){ .tab{font-size:14px} .wiz{font-size:14px} }
+
+/* ── тёмная тема ────────────────────────────────────────────────────
+   С v5.15.0 панель носит две палитры (свои и системные) и отдаёт их в api/view
+   как brand и brand.dark. Эта страница рисует СВОЙ дизайн (туман + чернильный
+   синий), поэтому тема берётся из того же системного переключателя, а не из
+   красок оператора: инвертируются пары --fog/--mist/--ink, всё остальное в
+   вёрстке уже относительное. Синий осветлён, чтобы белым надписям на кнопках
+   хватало контраста на тёмном фоне; янтарные плашки, наоборот, затемняются. */
+@media (prefers-color-scheme:dark){
+  :root{
+    --fog:#0E1220; --mist:#171C2E; --white:#1B2135;
+    --ink:#E9ECF6; --ink2:#DCE1F0; --text:#C6CCE0; --muted:#949CBB; --faint:#6C7392;
+    --line:#2A3050; --line-soft:#232946;
+    --blue:#2E6FE0; --blue-glow:#6BB0FF;
+    --red:#E23B44; --red-glow:#FF6A70;
+    --green:#2FB37C; --orange:#D9A03C;
+    --hover:#222A45; --warn-bg:#3A2E12; --warn-fg:#F0C46B; --warn-fg2:#F5D89A;
+    --scrim:rgba(4,6,14,.72);
+    color-scheme:dark;
+  }
+  /* Hover-ы, которые в светлой теме кладут --ink под белые буквы: здесь --ink
+     стал светлым, поэтому цвет надо класть тёмный (а не оставлять #fff). */
+  .btn:hover{color:var(--fog)}
+  .wiz:hover{color:#F2F5FF}
+  /* QR остаётся на белой плашке: сканеру нужен именно чёрный-на-белом. */
+  .bg-dragon{opacity:.16;filter:saturate(.55) brightness(1.9)}
+  /* Стрелка select'а нарисована внутри data-URI, то есть вне токенов — ей нужен
+     свой светлый штрих. */
+  select.field{background:var(--fog) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23949CBB' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 18px center/12px 8px}
+}
 </style>
 </head>
 <body>
@@ -859,6 +894,11 @@ footer nav a:hover{color:var(--ink);text-decoration:underline;text-underline-off
       if(INTG) cl.target="_blank"; }
     $("openApps").hidden=!(v.apps||[]).length;
     $("openApps").onclick=openApps;
+    // Мастер — это путь Happ, поэтому прячем его, когда оператор выключил Happ в
+    // списке приложений: ровно как штатная страница панели (её тест проверяет, что
+    // при "-happ" мастера нет). Выбрать вместо мастера другой клиент этой странице нечем
+    // — панель не отдаёт в api/view ни выбор по платформам, ни ссылки на скачивание.
+    $("wizBtn").hidden=!(v.apps||[]).some(function(a){ return /^happ:/i.test(a.url||""); });
     $("wizBtn").onclick=openWizard;
     // apps modal
     var list=$("appList"); list.innerHTML="";
@@ -959,6 +999,11 @@ footer nav a:hover{color:var(--ink);text-decoration:underline;text-underline-off
     if(links.length) box.appendChild(fold(IC.server,t("configs"),links.length,function(b){
       links.forEach(function(l){ b.appendChild(item(l.name,function(c){
         c.appendChild(el("code","code",esc(l.url)));
+        // TrustTunnel импортируется касанием, а не подпиской: у его tt:// та же
+        // кнопка «открыть», что на штатной странице панели (её protoLink.Open
+        // пропускает только tt://). Схема не http, поэтому роутер кликов ниже
+        // отдаёт её ОС, а не отдаёт webview'у, который переписывает её на http://.
+        if(/^tt:/i.test(l.url)) c.appendChild(linkBtn("",t("open"),l.url,IC.ext));
         c.appendChild(copyButton("alt",t("copy"),l.url));
       })); });
     }));
