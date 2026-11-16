@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -163,11 +164,24 @@ type Supervisor struct {
 	verOnce sync.Once
 	version string
 
+	// abortCh is closed by Abort: api calls under way give up and are not asked again.
+	// Nil on a bare Supervisor, which then never aborts.
+	abortCh   chan struct{}
+	abortOnce sync.Once
+
 	logs *logbuf.Hub // recent Xray log lines + live subscribers
 }
 
 // LogTail returns the buffered recent Xray log lines.
 func (s *Supervisor) LogTail() []string { return s.logs.Tail() }
+
+// UseLogHub makes h this Xray's log: the master's server log (logbuf.Server), so the
+// panel's server-scope lines and Xray's own read as one. Call before Start.
+func (s *Supervisor) UseLogHub(h *logbuf.Hub) { s.logs = h }
+
+// LogSink is where a helper running beside Xray (opera-proxy) writes its lines, so
+// they show in this server's log rather than the panel's.
+func (s *Supervisor) LogSink() io.Writer { return s.logs }
 
 // SubscribeLogs returns a channel of new Xray log lines and an unsubscribe func.
 func (s *Supervisor) SubscribeLogs() (<-chan string, func()) { return s.logs.Subscribe() }
@@ -421,7 +435,70 @@ func NewSupervisor(binName, configPath, assetDir string) *Supervisor {
 	if bin == "" {
 		slog.Warn("xray: binary not found; config will be generated but Xray won't be started", "binary", binName)
 	}
-	return &Supervisor{bin: bin, configPath: configPath, assetDir: assetDir, logs: logbuf.New(), promoteAfter: healthyUptime}
+	return &Supervisor{bin: bin, configPath: configPath, assetDir: assetDir, logs: logbuf.New(), promoteAfter: healthyUptime,
+		abortCh: make(chan struct{})}
+}
+
+// Abort is the first step of a shutdown, safe from any goroutine: Xray is not started
+// again, and the api calls an apply is making give up rather than wait out their
+// retries. An apply holds runMu throughout, so without this a stop waits behind one
+// that cannot reach Xray — seconds per user change, past systemd's patience. Stop
+// still has to follow.
+func (s *Supervisor) Abort() {
+	s.mu.Lock()
+	s.closed = true
+	s.mu.Unlock()
+	s.abortOnce.Do(func() {
+		if s.abortCh != nil {
+			close(s.abortCh)
+		}
+	})
+}
+
+// aborted reports whether Abort was called.
+func (s *Supervisor) aborted() bool {
+	select {
+	case <-s.abortCh:
+		return true
+	default:
+		return false // a nil channel lands here too
+	}
+}
+
+// pause waits d between api retries; false when Abort came first.
+func (s *Supervisor) pause(d time.Duration) bool {
+	if s.waitFn != nil {
+		s.waitFn(d)
+		return !s.aborted()
+	}
+	select {
+	case <-time.After(d):
+		return true
+	case <-s.abortCh:
+		return false
+	}
+}
+
+// callContext bounds one call by timeout and by Abort.
+func (s *Supervisor) callContext(timeout time.Duration) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	if s.abortCh != nil {
+		go func() {
+			select {
+			case <-s.abortCh:
+				cancel()
+			case <-ctx.Done():
+			}
+		}()
+	}
+	return ctx, cancel
+}
+
+// newAPI is newXrayAPI for this supervisor: its retries stop at Abort.
+func (s *Supervisor) newAPI(addr string) *xrayAPI {
+	a := newXrayAPI(addr, s.waitFn)
+	a.abort = s.abortCh
+	return a
 }
 
 // ConfigBytes returns the on-disk config.json currently applied to Xray.
@@ -445,6 +522,26 @@ const MemoryLimit = 256 << 20
 
 func (s *Supervisor) env() []string {
 	env := os.Environ()
+	// Xray only calls Dialer.SetMultipathTCP when its option is true. A false
+	// option otherwise inherits GODEBUG, and MPTCP refuses TCP_USER_TIMEOUT.
+	// Keep the default on ordinary TCP; explicit tcpMptcp=true still opts in.
+	var debug string
+	env = slices.DeleteFunc(env, func(kv string) bool {
+		v, ok := strings.CutPrefix(kv, "GODEBUG=")
+		if ok {
+			debug = v
+		}
+		return ok
+	})
+	var options []string
+	for _, option := range strings.Split(debug, ",") {
+		key, _, _ := strings.Cut(option, "=")
+		if option != "" && key != "multipathtcp" {
+			options = append(options, option)
+		}
+	}
+	options = append(options, "multipathtcp=0")
+	env = append(env, "GODEBUG="+strings.Join(options, ","))
 	if s.assetDir != "" {
 		env = append(env, "XRAY_LOCATION_ASSET="+s.assetDir)
 	}
@@ -453,34 +550,10 @@ func (s *Supervisor) env() []string {
 	// runtime exceeds it rather than OOM-killing if the live heap genuinely needs
 	// more, so it can't break xray.
 	env = append(env, "GOMEMLIMIT="+strconv.FormatInt(MemoryLimit, 10))
-	if tz := childTZ(); tz != "" {
+	if tz := logbuf.ChildTZ(); tz != "" {
 		env = append(env, "TZ="+tz)
 	}
 	return env
-}
-
-// childTZ is the zone to run Xray in, so the timestamps it stamps on its OWN log
-// lines match the panel's — otherwise one log interleaves two zones (Xray in the
-// server's system zone, the panel in the operator's).
-//
-// Returns "" — leaving Xray on the server default — unless the zone is BOTH
-// configured by the operator and present in the system zoneinfo. That second check
-// matters: xray is a stock Go binary that (unlike ours) may not embed tzdata, and
-// Go silently falls back to UTC for a TZ it can't load. Setting a zone blindly
-// could therefore push Xray further from the operator's clock, not closer.
-func childTZ() string {
-	loc := logbuf.Location()
-	if loc == nil || loc == time.Local || loc == time.UTC {
-		return ""
-	}
-	name := loc.String()
-	if name == "" || name == "Local" {
-		return ""
-	}
-	if _, err := os.Stat(filepath.Join("/usr/share/zoneinfo", name)); err != nil {
-		return "" // host has no tzdata for it → don't risk Xray defaulting to UTC
-	}
-	return name
 }
 
 // LastApply is when a config was last applied, whether or not that required a
@@ -594,7 +667,7 @@ func (s *Supervisor) ValidateConfig(cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
-	return s.ValidateBytes(data)
+	return s.ValidateBytes(tcpDefaults(data))
 }
 
 // Apply writes the config atomically (validating first when possible) and
@@ -614,6 +687,8 @@ func (s *Supervisor) Apply(cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
+
+	data = tcpDefaults(data)
 
 	s.runMu.Lock()
 	defer s.runMu.Unlock()
@@ -721,6 +796,7 @@ func (s *Supervisor) runningMatchesDisk() bool {
 // through the Config struct. Same validate → atomic swap → restart, with the same
 // rollback backup, so a config the node's Xray can't parse never kills it.
 func (s *Supervisor) ApplyRaw(data []byte) error {
+	data = tcpDefaults(data)
 	s.runMu.Lock()
 	defer s.runMu.Unlock()
 
@@ -818,6 +894,8 @@ func (s *Supervisor) WriteConfig(cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
+	data = tcpDefaults(data)
+
 	s.runMu.Lock()
 	defer s.runMu.Unlock()
 	if err := os.MkdirAll(filepath.Dir(s.configPath), 0o700); err != nil {
@@ -842,7 +920,7 @@ func (s *Supervisor) runXray(timeout time.Duration, args ...string) ([]byte, err
 	if s.bin == "" {
 		return nil, fmt.Errorf("xray binary unavailable")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := s.callContext(timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, s.bin, args...)
 	cmd.Env = s.env()
@@ -874,14 +952,12 @@ func (s *Supervisor) runXray(timeout time.Duration, args ...string) ([]byte, err
 func (s *Supervisor) runXrayAPI(timeout time.Duration, args ...string) ([]byte, error) {
 	for attempt := 0; ; attempt++ {
 		out, err := s.runXray(timeout, args...)
-		if err == nil || !neverReachedXray(err) || attempt >= len(apiDialRetries) {
+		if err == nil || !neverReachedXray(err) || attempt >= len(apiDialRetries) || s.aborted() {
 			return out, err
 		}
 		slog.Warn("xray: api call could not reach xray, asking again", "call", args[1], "attempt", attempt+1, "err", err)
-		if s.waitFn != nil {
-			s.waitFn(apiDialRetries[attempt])
-		} else {
-			time.Sleep(apiDialRetries[attempt])
+		if !s.pause(apiDialRetries[attempt]) {
+			return out, err
 		}
 	}
 }
@@ -1562,7 +1638,7 @@ func (s *Supervisor) QueryStatsLive(apiAddr string) (map[string]Traffic, error) 
 		if s.statsAPI != nil {
 			s.statsAPI.close()
 		}
-		s.statsAPI = newXrayAPI(apiAddr, s.waitFn)
+		s.statsAPI = s.newAPI(apiAddr)
 	}
 	api := s.statsAPI
 	s.mu.Unlock()

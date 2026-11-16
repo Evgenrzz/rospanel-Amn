@@ -1,5 +1,48 @@
 # Changelog
 
+## [5.17.0](https://github.com/AppsGanin/rospanel/compare/v5.16.2...v5.17.0) (2026-11-12)
+
+
+### Features
+
+* **logs:** split the panel's log from its servers' logs ([89caf9e](https://github.com/AppsGanin/rospanel/commit/89caf9efab7804becf91244af1da43ccbef26fda))
+
+## [5.16.2](https://github.com/AppsGanin/rospanel/compare/v5.16.1...v5.16.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* **node:** write the goroutines down after 3 min of sync silence ([bffb5b5](https://github.com/AppsGanin/rospanel/commit/bffb5b512aeaf5324de8de895d70564159b4f919))
+
+## [5.16.1](https://github.com/AppsGanin/rospanel/compare/v5.16.0...v5.16.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **awg:** keep live sessions on peer changes, MTU 1280 ([09bd757](https://github.com/AppsGanin/rospanel/commit/09bd757ea588f7ead878c07b83443e5cd2d60fdd))
+* **net:** close TCP connections to vanished or stalled peers ([18bce05](https://github.com/AppsGanin/rospanel/commit/18bce0573a3262906572ad7b3c77cb45315431c4))
+
+## [5.16.0](https://github.com/AppsGanin/rospanel/compare/v5.15.0...v5.16.0) (2026-11-11)
+
+
+### Features
+
+* **api:** user id in the subscription view ([e64b6c6](https://github.com/AppsGanin/rospanel/commit/e64b6c6edfd2564f25b46f52d96ddb2d8affb34b))
+* **broadcast:** narrow a broadcast to one access group ([ed844d9](https://github.com/AppsGanin/rospanel/commit/ed844d996b6a95e83be1d22d0896e19cf93315fc))
+* **devices:** split the device limit into IP and HWID ([94ae04b](https://github.com/AppsGanin/rospanel/commit/94ae04b18bb4a2281f5dba93200ab370186c8015))
+* **plugins:** a theme can replace the subscription page's markup ([c754b81](https://github.com/AppsGanin/rospanel/commit/c754b81ef59bd69063942260ae41f007329ef73f))
+* **sub:** the user's id as the first badge on the subscription page ([74f32a7](https://github.com/AppsGanin/rospanel/commit/74f32a71a7f6d9e39f059a11e47f586c9900bc90))
+
+
+### Bug Fixes
+
+* **docs:** center the title under the logo on the README pages ([9b4b2f3](https://github.com/AppsGanin/rospanel/commit/9b4b2f3c75538f6b52cb733e3032abc5a8e04b5e))
+* **docs:** links from the plugin docs to the examples and sibling pages ([15c457d](https://github.com/AppsGanin/rospanel/commit/15c457d4f8ca4810970b76feea5c62d4913b1ce4))
+* **node:** size conntrack for a proxy, let a stop cut an apply short ([bdde760](https://github.com/AppsGanin/rospanel/commit/bdde76022ced9887e42eebd97cdc3f87656fe323))
+* **sub:** no bare "meta" in the browser check, drop a duplicate client ([b939431](https://github.com/AppsGanin/rospanel/commit/b9394316b81e0960ebc9737f357b6c4329ac4ad5))
+* **sub:** serve the subscription to known clients that send Accept: text/html ([dc94da9](https://github.com/AppsGanin/rospanel/commit/dc94da9e31932e48d89663abc24f715854ddf8e7))
+* **sub:** serve the subscription to known clients that send Accept: text/html ([38a5c23](https://github.com/AppsGanin/rospanel/commit/38a5c2303b7da9227ce80ad40f8cea1626cbfc42))
+
 ## [5.15.0](https://github.com/AppsGanin/rospanel/compare/v5.14.0...v5.15.0) (2026-11-09)
 
 

@@ -3282,6 +3282,9 @@
             },
             "type": "array"
           },
+          "hwid_limit": {
+            "type": "integer"
+          },
           "id": {
             "format": "int64",
             "type": "integer"
@@ -3316,6 +3319,7 @@
           "period_days",
           "data_limit",
           "device_limit",
+          "hwid_limit",
           "speed_limit",
           "reset_period",
           "sort_order",
@@ -3522,6 +3526,10 @@
           "used_pct": {
             "type": "integer"
           },
+          "user_id": {
+            "format": "int64",
+            "type": "integer"
+          },
           "wg": {
             "items": {
               "$ref": "#/components/schemas/ViewAWG"
@@ -3530,6 +3538,7 @@
           }
         },
         "required": [
+          "user_id",
           "name",
           "status",
           "status_label",
@@ -4336,6 +4345,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "hwid_limit": {
+            "type": "integer"
+          },
           "name": {
             "type": "string"
           },
@@ -4746,6 +4758,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "hwid_limit": {
+            "type": "integer"
+          },
           "lang": {
             "type": "string"
           },
@@ -5015,6 +5030,9 @@
           "hwid_ttl_days": {
             "type": "integer"
           },
+          "ip_fallback_limit": {
+            "type": "integer"
+          },
           "local_backup_cron": {
             "type": "string"
           },
@@ -5083,6 +5101,9 @@
           "hwid_ttl_days": {
             "type": "integer"
           },
+          "ip_fallback_limit": {
+            "type": "integer"
+          },
           "local_backup_cron": {
             "type": "string"
           },
@@ -5148,6 +5169,7 @@
           "hwid_enabled",
           "hwid_require",
           "hwid_fallback_limit",
+          "ip_fallback_limit",
           "hwid_ttl_days",
           "device_count_mode",
           "local_backup_cron",
@@ -5937,11 +5959,17 @@
             "format": "int64",
             "type": "integer"
           },
+          "hwid_limit": {
+            "type": "integer"
+          },
           "hysteria2": {
             "type": "string"
           },
           "id": {
             "format": "int64",
+            "type": "integer"
+          },
+          "ip_limit": {
             "type": "integer"
           },
           "lang": {
@@ -6053,7 +6081,9 @@
           "reset_period",
           "last_seen",
           "device_limit",
+          "ip_limit",
           "active_devices",
+          "hwid_limit",
           "speed_limit",
           "note",
           "tags",
@@ -6086,7 +6116,7 @@
   "info": {
     "description": "External REST API for managing RosPanel users, billing and stats.",
     "title": "RosPanel API",
-    "version": "5.14.0"
+    "version": "5.17.0"
   },
   "openapi": "3.0.3",
   "paths": {
@@ -6666,7 +6696,7 @@
             }
           },
           {
-            "description": "page size (default 100, max 1000; \u003c=0 means everything from offset)",
+            "description": "page size (default 100, max 1000; <=0 means everything from offset)",
             "in": "query",
             "name": "limit",
             "required": false,
@@ -7105,6 +7135,9 @@
                       "type": "integer"
                     },
                     "type": "array"
+                  },
+                  "hwid_limit": {
+                    "type": "integer"
                   },
                   "id": {
                     "format": "int64",
@@ -7758,7 +7791,7 @@
       "get": {
         "parameters": [
           {
-            "description": "page size (default 100, max 1000; \u003c=0 means everything from offset)",
+            "description": "page size (default 100, max 1000; <=0 means everything from offset)",
             "in": "query",
             "name": "limit",
             "required": false,
@@ -9310,6 +9343,41 @@
         ]
       }
     },
+    "/v1/logs": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/apiNodeLogsResp"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The panel's own recent log lines (users, billing, bots; servers' lines are under /v1/nodes/{id}/logs)",
+        "tags": [
+          "Nodes"
+        ]
+      }
+    },
     "/v1/metrics": {
       "get": {
         "responses": {
@@ -9830,7 +9898,7 @@
             "description": "Error"
           }
         },
-        "summary": "A node's recent log lines (collected on its next poll; `at` says how fresh)",
+        "summary": "A server's recent log lines: its Xray, helpers and what the panel did to it (0 is the master; a node's are collected on its next poll, `at` says how fresh)",
         "tags": [
           "Nodes"
         ]
@@ -10939,6 +11007,9 @@
                   "hwid_ttl_days": {
                     "type": "integer"
                   },
+                  "ip_fallback_limit": {
+                    "type": "integer"
+                  },
                   "local_backup_cron": {
                     "type": "string"
                   },
@@ -11145,7 +11216,7 @@
       "get": {
         "parameters": [
           {
-            "description": "page size (default 100, max 1000; \u003c=0 means everything from offset)",
+            "description": "page size (default 100, max 1000; <=0 means everything from offset)",
             "in": "query",
             "name": "limit",
             "required": false,
@@ -11217,7 +11288,7 @@
       "get": {
         "parameters": [
           {
-            "description": "page size (default 100, max 1000; \u003c=0 means everything from offset)",
+            "description": "page size (default 100, max 1000; <=0 means everything from offset)",
             "in": "query",
             "name": "limit",
             "required": false,
@@ -11490,7 +11561,7 @@
       "get": {
         "parameters": [
           {
-            "description": "page size (default 100, max 1000; \u003c=0 means everything from offset)",
+            "description": "page size (default 100, max 1000; <=0 means everything from offset)",
             "in": "query",
             "name": "limit",
             "required": false,
@@ -11791,7 +11862,7 @@
             }
           },
           {
-            "description": "page size (\u003c=0 = all from offset)",
+            "description": "page size (<=0 = all from offset)",
             "in": "query",
             "name": "limit",
             "required": false,
@@ -11884,6 +11955,9 @@
                   },
                   "hold_seconds": {
                     "format": "int64",
+                    "type": "integer"
+                  },
+                  "hwid_limit": {
                     "type": "integer"
                   },
                   "name": {
@@ -12137,6 +12211,9 @@
                   },
                   "hold_seconds": {
                     "format": "int64",
+                    "type": "integer"
+                  },
+                  "hwid_limit": {
                     "type": "integer"
                   },
                   "lang": {
@@ -12471,7 +12548,7 @@
             }
           },
           {
-            "description": "page size (default 100, max 1000; \u003c=0 means everything from offset)",
+            "description": "page size (default 100, max 1000; <=0 means everything from offset)",
             "in": "query",
             "name": "limit",
             "required": false,
@@ -12552,7 +12629,7 @@
             }
           },
           {
-            "description": "page size (default 100, max 1000; \u003c=0 means everything from offset)",
+            "description": "page size (default 100, max 1000; <=0 means everything from offset)",
             "in": "query",
             "name": "limit",
             "required": false,

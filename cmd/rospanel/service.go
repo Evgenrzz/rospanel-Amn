@@ -29,6 +29,7 @@ import (
 	"github.com/AppsGanin/rospanel/internal/h2fix"
 	"github.com/AppsGanin/rospanel/internal/hostfw"
 	"github.com/AppsGanin/rospanel/internal/http80"
+	"github.com/AppsGanin/rospanel/internal/logbuf"
 	"github.com/AppsGanin/rospanel/internal/model"
 	"github.com/AppsGanin/rospanel/internal/naive"
 	"github.com/AppsGanin/rospanel/internal/netinfo"
@@ -50,6 +51,7 @@ import (
 // generate the Xray config, start the background loops and serve the admin API +
 // masquerade/subscription surface until a termination signal arrives.
 func runServer(dataDir string) {
+	splitServerLog(dataDir) // the master: lines about its servers go to their logs
 	log.Printf("startup: RosPanel %s booting (data dir %s)", version.Version, dataDir)
 	logMemoryLimit(tuning.SetMemoryLimit(panelMemoryShare, xray.MemoryLimit))
 	adminAddr := env("ROSPANEL_ADMIN_ADDR", "127.0.0.1:8080")
@@ -183,6 +185,7 @@ func runServer(dataDir string) {
 	default:
 		log.Printf("bbr: not enabled (unavailable on this kernel or insufficient perms): %v", err)
 	}
+	logConntrack(tuning.EnsureConntrack(tuning.RAMMiB()))
 
 	// Geo databases for geosite/geoip routing rules. Done synchronously before the
 	// first reconcile so the builtin geoip rule resolves and Xray can start.
@@ -194,6 +197,7 @@ func runServer(dataDir string) {
 	// not hold up its start.
 
 	sup := xray.NewSupervisor(xrayBin, xrayConfig, geoDir)
+	sup.UseLogHub(logbuf.Server) // Xray and the panel's lines about this host, one log
 	// The TCP-TLS lane's public port belongs to the front, which answers plain HTTP the
 	// way the decoy's claimed Caddy would and hands everything else to Xray on loopback
 	// (see tlsfront). Taken before the first reconcile starts Xray, which then no longer
@@ -456,6 +460,14 @@ const panelMemoryShare = 0.5
 
 // logMemoryLimit says what SetMemoryLimit decided, so an operator reading the boot log
 // can tell a slow, collecting panel from one that has room.
+// logConntrack says what EnsureConntrack changed; an unchanged table says nothing.
+func logConntrack(c tuning.Conntrack, err error) {
+	if err == nil && c.Changed {
+		slog.Info("conntrack: sized for a proxy", "max", c.Max, "was", c.WasMax,
+			"tcp_established_timeout", c.Established, "was_timeout", c.Was)
+	}
+}
+
 func logMemoryLimit(m tuning.Memory) {
 	switch {
 	case m.Basis == "GOMEMLIMIT":

@@ -48,7 +48,12 @@ func Font(name string) ([]byte, bool) {
 //go:embed page.html
 var pageHTML string
 
-var pageTmpl = template.Must(template.New("sub").Parse(pageHTML))
+// pageBase is never executed, so a theme can be cloned from it (html/template
+// refuses to clone a template that ran); the page itself renders pageTmpl.
+var (
+	pageBase = template.Must(template.New("sub").Parse(pageHTML))
+	pageTmpl = template.Must(pageBase.Clone())
+)
 
 // appRedirectTmpl is a tiny page that immediately hands off to a client's deep
 // link. It's opened in the EXTERNAL browser (via Telegram's openLink) because a
@@ -109,6 +114,7 @@ type pageText struct {
 	DefaultBrand   string
 	Greeting       string
 	GreetingName   string // Greeting with the user's name, a %s
+	UserID         string // the label before the user's id
 	Online         string
 	Offline        string
 	Traffic        string
@@ -221,6 +227,7 @@ func text(lang i18n.Lang) pageText {
 		DefaultBrand:   t("sub.defaultBrand"),
 		Greeting:       t("sub.greeting"),
 		GreetingName:   t("sub.greetingName"),
+		UserID:         t("sub.userID"),
 		Online:         t("sub.online"),
 		Offline:        t("sub.offline"),
 		Traffic:        t("sub.traffic"),
@@ -427,17 +434,18 @@ func colorsOf(t branding.Theme) pageColors {
 }
 
 type pageData struct {
-	Lang       i18n.Lang
+	Lang       i18n.Lang // the reader's language: ru, en, zh, ar; .Lang.Dir is ltr or rtl
 	L          pageText
-	Name       string
+	UserID     int64       // the user's id, to quote to support
+	Name       string      // the user's name, "" when they have none
 	BrandName  string      // panel display name (defaults to the stock RosPanel name)
 	pageColors             // the light theme
 	Dark       *pageColors // the dark theme, for a dark system
 	IsDefault  bool        // true when the stock RosPanel name is in effect
-	SubURL     string
-	Access     Access
-	Links      []protoLink
-	DeepLinks  []DeepLink
+	SubURL     string      // the subscription link: what a client imports; {{.SubURL}}/qr.png is its QR
+	Access     Access      // the reader's access to this page, plugin blocks, notices and the survey
+	Links      []protoLink // one share link per protocol and server (shown when ShowConfigs)
+	DeepLinks  []DeepLink  // "open in app" links, one per client, in the operator's order
 	// Wizard is the connect wizard per platform; empty (every platform's client
 	// switched off) hides it.
 	Wizard []WizardPlatform
@@ -452,22 +460,22 @@ type pageData struct {
 	// Telegram lists one card per server whose Telegram proxy the user may use.
 	Telegram []tgProxyCard
 
-	StatusLabel string
-	StatusClass string
-	Used        string
-	Limit       string
+	StatusLabel string // the subscription's state, worded: active, expired, disabled, limited
+	StatusClass string // the same as a colour: green, red, gray, orange
+	Used        string // traffic used, formatted ("12 GB")
+	Limit       string // the traffic limit, formatted; set when HasLimit
 	HasLimit    bool
-	UsedPct     int
+	UsedPct     int    // used of the limit, 0-100
 	ResetText   string // date the traffic quota next refills, e.g. "07.08.2026"
 	HasReset    bool
-	Expire      string
+	Expire      string // "until 23.12.2026", worded; set when HasExpire
 	HasExpire   bool
-	Online      bool
-	LastSeen    string
+	Online      bool   // a client is connected now
+	LastSeen    string // when one last was, "3 h ago"; "" if never
 
-	Billing     Billing
-	Devices     Devices
-	ShowConfigs bool // render the raw per-lane share links
+	Billing     Billing // plans, balance, promo codes, history and referrals; Billing.Show is false when selling is off
+	Devices     Devices // the devices bound to the subscription; Devices.Show is false when the operator does not show them
+	ShowConfigs bool    // render the raw per-lane share links
 	// ShowDownload renders the "download the Clash config" button. Off when the
 	// operator requires an HWID: the button fetches this same URL from the browser,
 	// which sends no id and would be refused — an offer the page cannot keep.
@@ -700,6 +708,9 @@ func Page(u model.User, local *model.Settings, servers []Server, billing Billing
 		return nil, err
 	}
 	data.Access = access
+	if b, ok := renderThemed(data); ok {
+		return b, nil
+	}
 	var buf bytes.Buffer
 	if err := pageTmpl.Execute(&buf, data); err != nil {
 		return nil, err
@@ -838,6 +849,7 @@ func buildPageData(u model.User, local *model.Settings, servers []Server, billin
 	data := pageData{
 		Lang:        lang,
 		L:           text(lang),
+		UserID:      u.ID,
 		Name:        u.Name,
 		BrandName:   brandName,
 		pageColors:  colorsOf(pal.Light),
@@ -978,6 +990,11 @@ type Access struct {
 	Blocks []Block
 	// ThemeCSS is the theme plugin's stylesheet, applied over the page's own.
 	ThemeCSS string
+	// Markup is the theme plugin's sections, nil when it replaces none (theme.go).
+	Markup *ThemeMarkup
+	// NoPanelStyles leaves the panel's stylesheet out: the theme styles the whole
+	// page (provides.theme.panel_styles = false). Fonts and colours stay.
+	NoPanelStyles bool
 	// RotatePath is where the reader reissues their own link, "" when the operator
 	// does not allow it (Settings.SubSelfRotateHours); RotateWait says how often they
 	// may, in their language.
