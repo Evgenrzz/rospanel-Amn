@@ -66,7 +66,7 @@ type proc struct {
 	// wireGuard is the peers this process's WireGuard inbounds hold as the panel has
 	// changed them (inbound tag → email → peer), and wireGuardLost the same mark as
 	// hysteriaLost (see wireguard_live.go). Under runMu.
-	wireGuard     map[string]map[string]wireGuardPeerState
+	wireGuard     map[string]map[string][]wireGuardPeerState
 	wireGuardLost bool
 	// tunnelUsers is who each WireGuard inbound's tunnel addresses belong to, for the
 	// access-log tap: that inbound logs no email (see attributeTunnel). Replaced whole
@@ -741,6 +741,13 @@ func (s *Supervisor) Apply(cfg *Config) error {
 		var err error
 		if live, err = s.tryLiveInbounds(s.APIAddr(), data); err != nil {
 			slog.Warn("xray: live inbound change failed, restarting with the new config", "err", err)
+		}
+		// Who a relay rule or a lane scoped to groups lets through, and nothing else:
+		// a group's members changed, which restarting would cut everyone for.
+		if !live && err == nil {
+			if live, err = s.tryLiveRuleUsers(s.APIAddr(), data); err != nil {
+				slog.Warn("xray: live routing change failed, restarting with the new config", "err", err)
+			}
 		}
 	}
 

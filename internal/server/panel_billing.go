@@ -83,6 +83,9 @@ func (rt *Router) getBilling(w http.ResponseWriter, r *http.Request) {
 		"churn_survey":         set.ChurnSurvey,
 		"traffic_packs":        packsOrEmpty(set.TrafficPacks),
 		"plan_change":          set.PlanChange,
+		"return_url":           set.BillingReturnURL,
+		"renew_window_days":    set.RenewWindowDays,
+		"max_prepaid_days":     set.MaxPrepaidDays,
 		"plans":                plans,
 		"plan_users":           planUsers,
 	})
@@ -111,6 +114,10 @@ func (rt *Router) saveBilling(w http.ResponseWriter, r *http.Request) {
 		// Left out keeps them.
 		TrafficPacks *[]model.TrafficPack `json:"traffic_packs"`
 		PlanChange   *bool                `json:"plan_change"`
+		ReturnURL    *string              `json:"return_url"` // left out keeps it
+		// Renewal limits in days, 0 = none; left out keeps them.
+		RenewWindowDays *int `json:"renew_window_days"`
+		MaxPrepaidDays  *int `json:"max_prepaid_days"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -163,6 +170,15 @@ func (rt *Router) saveBilling(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.PlanChange != nil {
 		set.PlanChange = *req.PlanChange
+	}
+	if req.ReturnURL != nil {
+		set.BillingReturnURL = *req.ReturnURL
+	}
+	if req.RenewWindowDays != nil {
+		set.RenewWindowDays = *req.RenewWindowDays
+	}
+	if req.MaxPrepaidDays != nil {
+		set.MaxPrepaidDays = *req.MaxPrepaidDays
 	}
 	if err := rt.mgr.SaveBillingSettings(set); err != nil {
 		writeManagerErr(w, err)

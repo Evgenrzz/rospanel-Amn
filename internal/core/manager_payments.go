@@ -283,16 +283,23 @@ func (m *Manager) providerReturnURL(provider string) string {
 	return u
 }
 
-// userReturnURL sends a payer whose flow carries no return address (the bot, a
-// bare API call) back to their Mini App when the install has one, else to their
-// subscription page — anywhere but the generic t.me front page.
+// userReturnURL sends a payer whose flow carries no return address (the bot) to
+// the operator's billing return address, else back to their Mini App when the
+// install has one, else to their subscription page while it is served — anywhere
+// but the generic t.me front page.
 func (m *Manager) userReturnURL(userID int64) string {
 	set, err := m.Settings()
 	if err != nil {
 		return ""
 	}
+	if set.BillingReturnURL != "" {
+		return set.BillingReturnURL
+	}
 	if u := sub.MiniAppURL(set); u != "" {
 		return u
+	}
+	if !set.SubPageReachable() {
+		return ""
 	}
 	u, err := m.store.GetUser(userID)
 	if err != nil || u == nil {
@@ -411,14 +418,14 @@ func (m *Manager) PaymentWebhookURL(key string) string {
 	if set == nil || set.PaymentWebhookSecret == "" || set.Host == "" {
 		return ""
 	}
-	return "https://" + set.Host + "/" + set.PaymentWebhookSecret + "/" + key
+	return "https://" + model.URLHost(set.Host) + "/" + set.PaymentWebhookSecret + "/" + key
 }
 
 // StartPlanPayment creates an order plus a provider payment and returns the order
 // with its hosted pay URL. provider may be "" when exactly one method is enabled.
-// The payer is returned to Telegram after paying (the bot flow).
+// The payer is returned where startProviderOrder's fallback chain says (the bot flow).
 func (m *Manager) StartPlanPayment(ctx context.Context, lang i18n.Lang, userID, planID int64, provider string, periods int) (*model.PaymentOrder, error) {
-	return m.startPlanPayment(ctx, lang, userID, planID, provider, "https://t.me/", periods)
+	return m.startPlanPayment(ctx, lang, userID, planID, provider, "", periods)
 }
 
 // StartPlanPaymentReturn is StartPlanPayment for the web subscription page: it

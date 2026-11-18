@@ -2,7 +2,7 @@
 
 Этот файл — список всего, чем форк `Evgenrzz/rospanel-Amn` отличается от upstream
 `AppsGanin/rospanel`, и чек-лист переноса при merge новой версии upstream.
-Актуальный срез диффа: `git diff --stat v5.15.1..HEAD` (точка последнего релиза; ветка разработки `fork-5.15.0`, релиз в `main`).
+Срез подготавливаемого обновления: `git diff v5.18.0 -- .` в рабочей копии ветки `fork-5.18.0`; целевая версия форка 5.18.1. До коммита HEAD остаётся на предыдущем релизе.
 После каждого нового merge дополняй разделы и обновляй команду среза.
 
 Правила работы агента, сводный реестр путей и журнал работ — в `AGENTS.md`.
@@ -14,6 +14,17 @@
 - Ноды сами НЕ обновляются: steady-state `auto_update_cron=''`, `auto_update_nodes=0`; конвергенция — вручную (swap бинаря с проверкой sha256) или разовым временным кроном с мастера.
 - `release-please.yml` выключен тумблером на стороне GitHub (не удалять файл, не включать).
 - Перед опорой на пайплайн проверять, что `fork-release.yml` жив на main: force-push однажды снёс его (см. раздел 1).
+
+## Обновление 18.11.2026: upstream v5.18.0
+- Перенос подготовлен в отдельном worktree ветки `fork-5.18.0`, исходная грязная `main` сохранена. Версия `internal/version/version.go` и `.release-please-manifest.json` — 5.18.1, чтобы не занимать upstream-тег v5.18.0.
+- Upstream принял HMAC-SHA256 YooMoney (`fab8de5`, включая `yoomoney_sign_test.go`), TG-webview AppRedirect (`ccd9030`), `return_url` и `sanitizeReturnURL` в `subscription.go`, `MiniAppURL` в `sub/view.go`, вызовы оплаты бота без t.me (`7b85658`). Эти файлы, кроме поля провайдера в `yoomoney.go`, теперь совпадают с upstream: отдельные повторные реализации не нужны.
+- Сохранена совместимость с существующим `payment_providers.config.return_url`: `internal/payments/{registry,yoomoney,yookassa}.go`, `internal/core/manager_payments.go`, три ключа во всех пяти `web/src/i18n/*.ts`. Цепочка: адрес запроса → адрес провайдера → новая общая `BillingReturnURL` upstream → MiniApp → доступная страница подписки → t.me. ПЕРЕНОСИТЬ ПРИ MERGE, пока настройки провайдеров не мигрированы явно.
+- Сохранены `internal/decoy/**` (tonari и CMS-персоны), `tools/decoycheck`, HTTP 301, fork-release, указатели установщика/апдейтера, `subpage/` и `subproxy/`. Алерты уже находятся в upstream и отдельно не переносятся.
+- Фикс отключённой Hysteria2 (§14) остаётся необходим: upstream v5.18.0 всё ещё всегда добавляет встроенный inbound. Перенесён в `internal/xray/generate.go` и `hysteria_live_test.go` с сохранением новых изменений генератора upstream. ПЕРЕНОСИТЬ ПРИ MERGE.
+- Новые миграции 0145–0150 пришли из upstream без изменения; собственных миграций добавлено не было.
+- Новые функции стандартной страницы (ключи AWG/WG/TURN по устройствам) не добавлены автоматически в кастомную статическую `subpage/index-redesign.html`; серверные endpoints и стандартная страница входят в обновление.
+- Проверки и состояние выпуска фиксируются в журнале AGENTS.md. Коммит, публикация и деплой пока не выполнены.
+- Гейты: web build, payments/sub/decoy/http80/link, HysteriaInbounds, subproxy, полный Linux core, subscription API, migration integrity, OpenAPI snapshot и Linux vet прошли; decoycheck 271/0. `docs/openapi.json` сгенерирован для 5.18.1. Полный race/lint не проверен; golangci-lint не установлен.
 
 ## 1. Релиз-пайплайн и указатель на форк
 - `.github/workflows/fork-release.yml` — релиз по тегу `v*` (web build + go build + SHA256SUMS + gh release create). ВОССТАНОВЛЕН 25.10.2026 после force-push'а main, который его удалил; при любом merge/force-push проверять наличие: `git ls-tree fork/main -- .github/workflows/fork-release.yml`.

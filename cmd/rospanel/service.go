@@ -109,6 +109,10 @@ func runServer(dataDir string) {
 	if err := st.ReencryptSensitiveFields(); err != nil {
 		log.Printf("[WARN] reencrypt secrets: %v", err)
 	}
+	// The VLESS-XHTTP-TLS lane's secret path, made once, before any config is built.
+	if err := st.EnsureXHTTPPath(auth.RandomXHTTPPath); err != nil {
+		log.Printf("[WARN] xhttp path: %v", err)
+	}
 
 	// Port 80, before anything asks for a certificate. A host that serves a
 	// convincing site on 443 and refuses 80 outright is not a shape the real web has,
@@ -704,6 +708,7 @@ func retentionLoop(mgr *core.Manager) func(context.Context) {
 		mgr.PurgeOldAbuse()           // blocklist matches past their (short) window
 		mgr.PurgeOldTraffic()         // per-day traffic history past a year
 		mgr.PurgeOldUptime()          // status-page history past its window
+		mgr.PurgeOldLoad()            // server load charts past their window
 		mgr.PurgeExpiredUsers()       // no-op unless the operator set a grace period
 		mgr.PurgeDeletedNodes()       // reclaim node tombstones past their grace window
 	}
@@ -855,7 +860,7 @@ func printFirstRunBanner(host, secret, username, password string) {
 		" Full URL   : https://%s/%s/\n"+
 		" Username   : %s\n"+
 		" Password   : %s\n%s",
-		bar, bar, secret, host, secret, username, password, bar)
+		bar, bar, secret, model.URLHost(host), secret, username, password, bar)
 }
 
 // panelDest converts the admin listen address into the loopback dest Xray uses

@@ -114,24 +114,16 @@ func TestHysteriaInboundsFindsEveryQUICInbound(t *testing.T) {
 	}
 }
 
-// A DISABLED built-in lane is still handed over, which is easy to mistake for a bug.
-// Generate always emits the built-in Hysteria inbound and merely empties its client list
-// when the protocol is off, so the listener stays up with nobody able to authenticate.
-// That empty list is itself a change worth applying — it is how the last user loses
-// access — so it must not be filtered out here.
-func TestHysteriaInboundsIncludesTheDisabledBuiltinLane(t *testing.T) {
+// A disabled built-in lane emits no listener, avoiding a public UDP fingerprint.
+func TestHysteriaInboundsExcludesTheDisabledBuiltinLane(t *testing.T) {
 	set := hysteriaSettings()
 	set.HysteriaEnabled = false
 	cfg, err := Generate(set, nil, Options{PanelDest: "127.0.0.1:8080"}, nil)
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	hy := HysteriaInbounds(cfg)
-	if len(hy) != 1 {
-		t.Fatalf("found %d hysteria inbounds, want the built-in lane even while disabled", len(hy))
-	}
-	if s, ok := hy[0].Settings.(HysteriaInboundSettings); ok && len(s.Users) != 0 {
-		t.Errorf("the disabled lane still carries %d user(s)", len(s.Users))
+	if hy := HysteriaInbounds(cfg); len(hy) != 0 {
+		t.Fatalf("found %d hysteria inbounds, want none while the lane is disabled", len(hy))
 	}
 }
 

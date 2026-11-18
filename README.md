@@ -294,11 +294,13 @@ Throne, Exclave and Karing.
 site; the password is the user's UUID. It goes to sing-box clients, the Clash profile (mihomo
 cores that have it), v2rayN, Shadowrocket, Throne, Exclave, Karing and NekoBox, when the certificate is trusted.
 
+**VLESS-XHTTP-TLS** is a built-in lane on the VLESS-TCP-TLS port, behind the decoy on a secret path of its own, with the same domain and certificate.
+
 **TrustTunnel** (AdGuard's protocol) is a built-in lane on the VLESS-TCP-TLS port over HTTP/2,
 behind the same certificate and decoy site: TCP and UDP, the login `tt-u<id>`, the password the
 user's UUID. Requires a domain with a trusted certificate: the apps do not connect to an IP. Its
 apps (TrustTunnel for iOS, Android, macOS, the CLI client) import the `tt://` link from the
-subscription page.
+subscription page; Throne (from 1.2.0; Android from 2.0.0), Exclave (from 0.17.19), LxBox (from 2.25.19) and NyameBox (from 5.11.28) get it in the subscription, mihomo cores from 1.19.21 in Clash (ClashMetaForAndroid 2.11.24+, FlClash 0.8.93+, Clash Verge Rev 2.4.7+, Clash Party 1.9.3+, FlClashX, ClashMi).
 
 **MTProto (Telegram proxy)** is a built-in lane on a TCP port of its own, picked automatically, on
 by default: Telegram itself connects through the server, no VPN app needed. Fake TLS with a secret
@@ -492,6 +494,8 @@ forces a format, gives or hides individual protocols (the built-in lanes, custom
 Encryption), or **blocks** the client (it is served the decoy). The first matching rule wins; no
 match falls through to detection by User-Agent. The editor shows what a given client would get.
 
+**Hiddify 5.5.5+** and **NyameBox 5.11.28+** get the link list instead of Clash, so NaiveProxy, AnyTLS, mieru (Hiddify) and TrustTunnel (NyameBox) reach them too.
+
 **A traffic limit per server** (on the server card, next to its capacity) is what the
 hosting sells you: a monthly or daily allowance in gigabytes. The month starts on the day the
 hosting counts from (a month without that day starts on its last one). The panel counts what it
@@ -559,8 +563,14 @@ to this server and reach the internet through the chosen ones. That is the entry
 allow-lists, where a local server is reachable and one abroad is not. Each exit is reached over a
 connection of your choice: VLESS-XHTTP-REALITY, VLESS-TCP-TLS or Hysteria2. The panel makes the
 bridge's key itself, and the exit takes it from the entry's addresses only. Traffic is counted on
-the entry and never leaves for the internet from its address. An exit cannot be switched off or
+the entry and never leaves for the internet from its address. What each entry sent through an
+exit is in Users → Statistics, under "Cascades". An exit cannot be switched off or
 deleted while a cascade goes through it. Who gets the entry is up to the access groups.
+
+**Lanes for groups.** A lane can be limited to the members of chosen access groups: its domains and
+IPs then apply to their connections only, and a lane with neither takes all of their traffic at its
+place in the order. One entry server can send tariff A through one exit and tariff B through
+another, or send YouTube through a proxy for one group while everyone else goes direct.
 
 **Config snapshots** (a *Snapshots* tab in the server settings) give an undo history for the
 **whole server config** — protocols, ports, REALITY, routing, egress, DNS, decoy and inbounds:
@@ -637,6 +647,8 @@ plus your picture, a QR code or a screenshot of the requisites — and an admin 
   the subscription.
 - **Longer-term discounts** — a plan for several periods at once, cheaper, traffic refilled
   every period.
+- **Renewal limits** (off by default) — renewal opens N days before the end, and a cap on
+  the days paid ahead; per plan too.
 - **Win-back** (off by default) — some days after a paid subscription ends, the user gets a
   personal one-use discount code in the bot, already applied to the next payment.
 - **Exit survey** (off by default) — a day after a paid subscription ends, the bot
@@ -860,6 +872,10 @@ server behind a shared address; blocks already in place on them are lifted on sa
 every node until unbanned. Every block, manual or automatic, with unban — in *Users → Statistics*.
 
 #### 🧰 Operations and security
+
+**Tunnel keys per device** — a user can hold several keys for AmneziaWG, WireGuard and TURN, one per device, up to the HWID device limit: two devices on one key knock each other off. A client that sends an HWID gets its own key on its first fetch; on the subscription page the owner picks, adds and deletes keys; the user card lists them.
+
+**Server monitoring** (*server card → chart, or a server on the dashboard*) — CPU, RAM, disk, network in and out, users online and availability of every server, master included, over 24 hours, 7 or 30 days, plus an outage log with start and duration. Sampled once a minute.
 
 **Diagnostics** in one click: the Xray process, the AmneziaWG tunnel, config application, TLS expiry, disk space, geo
 database freshness, egress health — every check with a hint. A separate **connection self-test**

@@ -64,12 +64,13 @@ func AWGClientConf(u model.User, s *model.Settings) string {
 	if err != nil {
 		return ""
 	}
-	addr, ok := awg.ClientAddr(u.AWGSlot)
-	if !ok || u.WGPrivateKey == "" {
+	key, slot := u.AWGIdentity()
+	addr, ok := awg.ClientAddr(slot)
+	if !ok || key == "" {
 		return ""
 	}
 	return awg.ClientConfig{
-		PrivateKey:      u.WGPrivateKey,
+		PrivateKey:      key,
 		Address:         addr,
 		DNS:             awg.TunnelDNS(s),
 		Params:          p,
@@ -93,12 +94,13 @@ func AWGThroneLink(u model.User, s *model.Settings) string {
 	if err != nil || p.IsZero() {
 		return ""
 	}
-	addr, ok := awg.ClientAddr(u.AWGSlot)
-	if !ok || u.WGPrivateKey == "" {
+	key, slot := u.AWGIdentity()
+	addr, ok := awg.ClientAddr(slot)
+	if !ok || key == "" {
 		return ""
 	}
 	q := []string{
-		"private_key=" + u.WGPrivateKey,
+		"private_key=" + key,
 		"local_address=" + addr.String() + "/32",
 		"public_key=" + s.AWGPublicKey,
 		"mtu=" + strconv.Itoa(awg.DefaultMTU),
@@ -142,8 +144,8 @@ func AWGThroneLink(u model.User, s *model.Settings) string {
 }
 
 // awgLinkFor is the AmneziaWG link form a subscription client imports, or nil: INCY
-// (AWGLinkFor) its amneziawg://, Throne from 1.3.0 (random trailers among the rest) its
-// wg://. The others with an AmneziaWG of their own speak 1.5 or 2.0 — Hiddify, Karing,
+// (AWGLinkFor) its amneziawg://, Throne from 1.3.0 (random trailers among the rest) and
+// Throne for Android from 2.0.0 its wg://. The others with an AmneziaWG of their own speak 1.5 or 2.0 — Hiddify, Karing,
 // NyameBox, v2RayTun — and cannot finish a handshake with a 3.1 server.
 func awgLinkFor(userAgent string) func(model.User, *model.Settings) string {
 	if AWGLinkFor(userAgent) {
@@ -152,5 +154,55 @@ func awgLinkFor(userAgent string) func(model.User, *model.Settings) string {
 	if m := throneUA.FindStringSubmatch(userAgent); m != nil && versionAtLeast(m[1:], 1, 3, 0) {
 		return AWGThroneLink
 	}
+	if m := throneAndroidUA.FindStringSubmatch(userAgent); m != nil && versionAtLeast(m[1:], 2, 0, 0) {
+		return AWGThroneLink // its WireGuard.kt reads Throne's wg:// keys, "+" "/" "=" literally
+	}
 	return nil
+}
+
+// CarriesAWG reports whether a subscription answer in format for userAgent writes
+// AmneziaWG configs: some server in it has the lane on for the user, and the client
+// reads the lane in that format (a Clash core ClashAWG admits, or a link-list client
+// awgLinkFor has a form for). Only then is a key of the client's own worth making.
+func CarriesAWG(servers []Server, format, userAgent string) bool {
+	switch format {
+	case "clash":
+		if !ClashAWG(userAgent) {
+			return false
+		}
+	case "v2ray", "":
+		if awgLinkFor(userAgent) == nil {
+			return false
+		}
+	default:
+		return false
+	}
+	return HasAWG(servers)
+}
+
+// HasTunnel reports whether some server gives the user a lane the device keys serve:
+// AmneziaWG, or a WireGuard inbound (TURN-VK included).
+func HasTunnel(servers []Server) bool {
+	if HasAWG(servers) {
+		return true
+	}
+	for _, srv := range servers {
+		for _, in := range srv.Custom {
+			if model.IsWireGuard(in.Protocol) && srv.allowsInbound(in.ID) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// HasAWG reports whether some server has the AmneziaWG lane on for the user.
+func HasAWG(servers []Server) bool {
+	for _, srv := range servers {
+		s := srv.Set
+		if s.AWGEnabled && s.AWGPort != 0 && s.AWGPublicKey != "" && srv.allowsBuiltin(model.LaneAWG) {
+			return true
+		}
+	}
+	return false
 }

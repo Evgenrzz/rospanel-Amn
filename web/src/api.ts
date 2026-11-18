@@ -129,6 +129,29 @@ export interface DeviceList {
 
 export const getUserDevices = (id: number) => api<DeviceList>(`api/users/${id}/devices`)
 
+// A user's extra AmneziaWG keys, one per device; the main key is not listed.
+// limit counts the main key too.
+export interface AWGKey {
+  id: number
+  name: string
+  hwid?: string
+  addr: string
+  created_at: number
+  active: boolean // false: past the user's device cap, so a peer nowhere
+}
+export interface AWGKeyList {
+  keys: AWGKey[]
+  limit: number
+  enabled: boolean // some server has AmneziaWG on
+}
+export const getUserAWGKeys = (id: number) => api<AWGKeyList>(`api/users/${id}/awg-keys`)
+export const addUserAWGKey = (id: number, name: string) =>
+  api<AWGKey>(`api/users/${id}/awg-keys`, { method: 'POST', body: JSON.stringify({ name }) })
+export const renameUserAWGKey = (id: number, keyId: number, name: string) =>
+  api<void>(`api/users/${id}/awg-keys/rename`, { method: 'POST', body: JSON.stringify({ key_id: keyId, name }) })
+export const deleteUserAWGKey = (id: number, keyId: number) =>
+  api<void>(`api/users/${id}/awg-keys/delete`, { method: 'POST', body: JSON.stringify({ key_id: keyId }) })
+
 // Releases one device slot, or every one of them with all=true.
 export const unbindUserDevice = (id: number, body: { hwid?: string; all?: boolean }) =>
   api<{ removed: number }>(`api/users/${id}/devices/unbind`, {
@@ -642,6 +665,20 @@ export const getLaneTraffic = (p: { from?: string; to?: string }) => {
   if (p.from) q.set('from', p.from)
   if (p.to) q.set('to', p.to)
   return api<LaneTraffic[]>('api/stats/lanes?' + q.toString())
+}
+export type CascadeTraffic = {
+  exit_id: number
+  exit_name: string
+  entry_id: number
+  entry_name: string
+  up: number
+  down: number
+}
+export const getCascadeTraffic = (p: { from?: string; to?: string }) => {
+  const q = new URLSearchParams()
+  if (p.from) q.set('from', p.from)
+  if (p.to) q.set('to', p.to)
+  return api<CascadeTraffic[]>('api/stats/cascade?' + q.toString())
 }
 export const getStatsByUser = (from?: string, to?: string) => {
   const q = new URLSearchParams()
@@ -1320,6 +1357,8 @@ export interface EgressLane {
   // A cascade: our own servers as the upstreams (0 = the master), each reached over
   // one of its built-in lanes (reality / vision / hysteria2).
   via?: { server: number; bridge?: string }[]
+  // Access groups the lane applies to; absent = everyone.
+  groups?: number[]
 }
 
 export interface RoutingConfig {
@@ -1463,11 +1502,13 @@ export const saveSubSettings = (s: SubSettings) =>
 // SubProto is a protocol a response rule can give or hide (model.SubProtoKeys).
 export const SUB_PROTOS = [
   'vless',
+  'xhttp',
   'reality',
   'hysteria2',
   'naive',
   'anytls',
   'mieru',
+  'trusttunnel',
   'awg',
   'custom',
   'vless_enc',
@@ -2182,6 +2223,43 @@ export interface HealthReport {
 // it per server.)
 export const getNodeHealth = (id: number) => api<HealthReport>(`api/nodes/${id}/health`)
 
+// A server's load charts (node 0 is the panel's own). One point per step across
+// the window; null where nothing was sampled or nothing reported.
+export type LoadRange = '24h' | '7d' | '30d'
+export type LoadPoint = {
+  t: number
+  cpu: number | null
+  cpu_max: number | null
+  mem: number | null
+  mem_max: number | null
+  up: number | null
+  // disk in percent, rx/tx in bytes per second, online in users
+  disk: number | null
+  disk_max: number | null
+  rx: number | null
+  rx_max: number | null
+  tx: number | null
+  tx_max: number | null
+  online: number | null
+  online_max: number | null
+}
+export type LoadReport = {
+  range: LoadRange
+  from: number
+  to: number
+  step: number
+  points: LoadPoint[]
+  outages: { start: number; end: number }[]
+  uptime: number
+  samples: number
+  down_seconds: number
+  rx_bytes: number
+  tx_bytes: number
+  online_max: number
+}
+export const getNodeLoad = (id: number, range: LoadRange) =>
+  api<LoadReport>(`api/nodes/${id}/load?range=${range}`)
+
 export type BulkAction = 'enable' | 'disable' | 'reset' | 'extend' | 'delete'
 
 // bulkUsers applies one action to many users in a single server pass (one Xray
@@ -2290,6 +2368,9 @@ export interface TariffPlan {
   // device_max of them (0 = none sold).
   device_price?: number
   device_max?: number
+  // The plan's own renewal limits in days; 0 takes the billing settings' value.
+  renew_window_days?: number
+  max_prepaid_days?: number
 }
 
 // Traffic on sale on top of a plan's quota.
@@ -2350,6 +2431,9 @@ export interface BillingInfo {
   churn_survey: boolean // ask a user whose paid term lapsed why it was not renewed
   traffic_packs: TrafficPack[]
   plan_change: boolean // users may switch plans while one is active
+  return_url: string // where a payer from the bot lands after paying ("" = Mini App / sub page)
+  renew_window_days: number // renewal opens this many days before the end (0 = always)
+  max_prepaid_days: number // paid time a purchase may leave, in days (0 = no limit)
   plans: TariffPlan[]
   plan_users?: Record<string, number> // plan id → number of users on it
 }
@@ -2443,6 +2527,9 @@ export const saveBilling = (b: {
   churn_survey: boolean
   traffic_packs: TrafficPack[]
   plan_change: boolean
+  return_url: string
+  renew_window_days: number
+  max_prepaid_days: number
 }) =>
   api<{ ok: boolean }>('api/billing', {
     method: 'POST',

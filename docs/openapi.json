@@ -26,6 +26,69 @@
         ],
         "type": "object"
       },
+      "AWGKeyRow": {
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "main": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "off": {
+            "type": "boolean"
+          },
+          "selected": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "selected",
+          "off",
+          "main"
+        ],
+        "type": "object"
+      },
+      "AWGKeys": {
+        "properties": {
+          "can_add": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/AWGKeyRow"
+            },
+            "type": "array"
+          },
+          "pick": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "show": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "show",
+          "list",
+          "pick",
+          "can_add",
+          "count",
+          "limit"
+        ],
+        "type": "object"
+      },
       "AbuseMatch": {
         "properties": {
           "category": {
@@ -459,6 +522,9 @@
           "renew_note": {
             "type": "string"
           },
+          "renew_opens": {
+            "type": "string"
+          },
           "renew_short": {
             "type": "boolean"
           },
@@ -489,6 +555,7 @@
           "current_plan",
           "expire_text",
           "plans",
+          "renew_opens",
           "providers",
           "manual",
           "manual_only",
@@ -931,6 +998,9 @@
       },
       "Devices": {
         "properties": {
+          "awg": {
+            "$ref": "#/components/schemas/AWGKeys"
+          },
           "count": {
             "type": "integer"
           },
@@ -955,7 +1025,8 @@
           "list",
           "count",
           "limit",
-          "count_text"
+          "count_text",
+          "awg"
         ],
         "type": "object"
       },
@@ -969,6 +1040,13 @@
           },
           "enabled": {
             "type": "boolean"
+          },
+          "groups": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
           },
           "id": {
             "type": "string"
@@ -3101,6 +3179,9 @@
           "cert_days_left": {
             "type": "integer"
           },
+          "cpu_avg": {
+            "type": "number"
+          },
           "cpu_cores": {
             "type": "integer"
           },
@@ -3137,7 +3218,15 @@
             "format": "int64",
             "type": "integer"
           },
+          "net_down_avg": {
+            "format": "int64",
+            "type": "integer"
+          },
           "net_up": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "net_up_avg": {
             "format": "int64",
             "type": "integer"
           },
@@ -3192,6 +3281,7 @@
         },
         "required": [
           "cpu_percent",
+          "cpu_avg",
           "mem_used",
           "mem_total",
           "swap_used",
@@ -3201,6 +3291,8 @@
           "host_uptime",
           "net_up",
           "net_down",
+          "net_up_avg",
+          "net_down_avg",
           "xray_running",
           "xray_uptime",
           "xray_version",
@@ -3289,6 +3381,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "max_prepaid_days": {
+            "type": "integer"
+          },
           "name": {
             "type": "string"
           },
@@ -3296,6 +3391,9 @@
             "type": "integer"
           },
           "price_rub": {
+            "type": "integer"
+          },
+          "renew_window_days": {
             "type": "integer"
           },
           "reset_period": {
@@ -3326,7 +3424,9 @@
           "enabled",
           "group_ids",
           "device_price",
-          "device_max"
+          "device_max",
+          "renew_window_days",
+          "max_prepaid_days"
         ],
         "type": "object"
       },
@@ -3470,6 +3570,9 @@
           },
           "maintenance": {
             "type": "boolean"
+          },
+          "miniapp_url": {
+            "type": "string"
           },
           "name": {
             "type": "string"
@@ -4162,6 +4265,9 @@
           "manual_label": {
             "type": "string"
           },
+          "max_prepaid_days": {
+            "type": "integer"
+          },
           "payment_note": {
             "type": "string"
           },
@@ -4182,6 +4288,12 @@
           },
           "ref_percent": {
             "type": "integer"
+          },
+          "renew_window_days": {
+            "type": "integer"
+          },
+          "return_url": {
+            "type": "string"
           },
           "topup_max": {
             "type": "integer"
@@ -4829,12 +4941,17 @@
               "$ref": "#/components/schemas/PlanQuote"
             },
             "type": "array"
+          },
+          "renew_opens_at": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
           "plan_id",
           "plan_name",
-          "quotes"
+          "quotes",
+          "renew_opens_at"
         ],
         "type": "object"
       },
@@ -6116,7 +6233,7 @@
   "info": {
     "description": "External REST API for managing RosPanel users, billing and stats.",
     "title": "RosPanel API",
-    "version": "5.17.0"
+    "version": "5.18.1"
   },
   "openapi": "3.0.3",
   "paths": {
@@ -7143,6 +7260,9 @@
                     "format": "int64",
                     "type": "integer"
                   },
+                  "max_prepaid_days": {
+                    "type": "integer"
+                  },
                   "name": {
                     "type": "string"
                   },
@@ -7150,6 +7270,9 @@
                     "type": "integer"
                   },
                   "price_rub": {
+                    "type": "integer"
+                  },
+                  "renew_window_days": {
                     "type": "integer"
                   },
                   "reset_period": {
@@ -7675,6 +7798,9 @@
                   "manual_label": {
                     "type": "string"
                   },
+                  "max_prepaid_days": {
+                    "type": "integer"
+                  },
                   "payment_note": {
                     "type": "string"
                   },
@@ -7695,6 +7821,12 @@
                   },
                   "ref_percent": {
                     "type": "integer"
+                  },
+                  "renew_window_days": {
+                    "type": "integer"
+                  },
+                  "return_url": {
+                    "type": "string"
                   },
                   "topup_max": {
                     "type": "integer"

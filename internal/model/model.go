@@ -25,6 +25,7 @@ const (
 // keeping them here as the single source stops those copies from drifting apart.
 const (
 	ProtoVLESS       = "VLESS-TCP-TLS"
+	ProtoXHTTP       = "VLESS-XHTTP-TLS"
 	ProtoReality     = "VLESS-XHTTP-REALITY"
 	ProtoHysteria    = "HYSTERIA-UDP"
 	ProtoAWG         = "AMNEZIA-WG"
@@ -192,6 +193,12 @@ type User struct {
 	// same on every server; 0 until their tunnel key is first needed. Handed out, not
 	// derived from the id, so a panel's user ids can grow past the subnet's size.
 	AWGSlot int `json:"-"`
+	// AWGDevices are the user's extra AmneziaWG keys (AWGDevice), loaded where peers
+	// are built from users; nil elsewhere.
+	AWGDevices []AWGKey `json:"-"`
+	// AWGPick is the key a subscription answer writes the AmneziaWG configs with when
+	// it is not the main one (AWGIdentity). Set per request, never stored.
+	AWGPick *AWGKey `json:"-"`
 
 	// ExtraDevices are devices bought beyond the plan's own (already in DeviceLimit);
 	// PackData is traffic bought on top of its quota (already in DataLimit), gone at
@@ -331,6 +338,10 @@ type TariffPlan struct {
 	// limit and a term.
 	DevicePrice int `json:"device_price"`
 	DeviceMax   int `json:"device_max"`
+	// RenewWindowDays and MaxPrepaidDays are the plan's own renewal limits (see
+	// Settings.RenewWindowDays); 0 takes the billing settings' value.
+	RenewWindowDays int `json:"renew_window_days"`
+	MaxPrepaidDays  int `json:"max_prepaid_days"`
 }
 
 // SellsDevices reports whether the plan sells extra devices.
@@ -1046,6 +1057,12 @@ type Settings struct {
 	MieruPort      int    `json:"-"`
 	MieruTransport string `json:"-"`
 
+	// VLESS-XHTTP-TLS (internal/xhttpfront): on XHTTPPath behind the decoy on the
+	// VLESS-TCP-TLS port, with its domain and certificate, on each user's UUID. The path
+	// is one for the fleet; a node's switch is its own (Node.XHTTPEnabled).
+	XHTTPEnabled bool   `json:"-"`
+	XHTTPPath    string `json:"-"`
+
 	// AnyTLS (internal/anytls): through the decoy behind the VLESS-TCP-TLS port, on each
 	// user's UUID, like NaiveProxy. A node's switch is its own (Node.AnyTLSEnabled).
 	AnyTLSEnabled bool `json:"-"`
@@ -1238,6 +1255,7 @@ type Settings struct {
 	NaiveName       string `json:"-"`
 	MieruName       string `json:"-"`
 	AnyTLSName      string `json:"-"`
+	XHTTPName       string `json:"-"`
 	TrustTunnelName string `json:"-"`
 	MTProtoName     string `json:"-"`
 
@@ -1348,6 +1366,10 @@ type Settings struct {
 	// BillingManualLabel is its pay-button label; empty falls back to the dictionary.
 	BillingManualEnabled bool   `json:"-"`
 	BillingManualLabel   string `json:"-"`
+	// BillingReturnURL is where a payer lands after paying through a payment system
+	// when the flow brings no address of its own (the bot, an API call without one).
+	// Empty: the Mini App, else the user's subscription page.
+	BillingReturnURL string `json:"-"`
 
 	// WalletEnabled lets users keep a balance: top it up, pay for plans from it and
 	// have it renew their plan when it runs out. WalletTopupMin and WalletTopupMax
@@ -1373,6 +1395,11 @@ type Settings struct {
 	// quota; PlanChange lets users switch plans while one is active.
 	TrafficPacks []TrafficPack `json:"-"`
 	PlanChange   bool          `json:"-"`
+	// RenewWindowDays opens the renewal of an active plan only this many days before
+	// its end; MaxPrepaidDays caps the paid time a user may hold after a purchase
+	// (never below one period). 0 = no limit. A plan may set its own.
+	RenewWindowDays int `json:"-"`
+	MaxPrepaidDays  int `json:"-"`
 	// MiniAppPath is the Mini App's random address segment; TGMenuURL the address the
 	// user bot's menu button was last set to.
 	MiniAppPath string `json:"-"`
@@ -1912,6 +1939,16 @@ func ValidSubPageURL(raw string) bool {
 	return err == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" && u.User == nil
 }
 
+// ValidReturnURL reports whether raw is an absolute http(s) address without
+// credentials, up to 2048 characters — what a payer may be sent back to.
+func ValidReturnURL(raw string) bool {
+	if len(raw) > 2048 || strings.ContainsAny(raw, " \t\r\n") {
+		return false
+	}
+	u, err := url.Parse(raw)
+	return err == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" && u.User == nil
+}
+
 // SubPageLoops reports whether raw sends the browser back to a subscription link of
 // this very panel — which would redirect it again, forever.
 func SubPageLoops(raw, host, subPath string) bool {
@@ -2150,6 +2187,8 @@ func (s *Settings) ProtoLabelFor(proto string, u *User) string {
 		custom = s.MieruName
 	case ProtoAnyTLS:
 		custom = s.AnyTLSName
+	case ProtoXHTTP:
+		custom = s.XHTTPName
 	case ProtoTrustTunnel:
 		custom = s.TrustTunnelName
 	case ProtoMTProto:
@@ -2310,6 +2349,34 @@ type EgressLane struct {
 	// URLs/Manual. The lane's traffic never leaves from here: with no exit judged alive
 	// it still goes to one, and with no exit at all it is dropped.
 	Via []CascadeExit `json:"via,omitempty"`
+
+	// Groups scopes the lane to the members of these access groups: its rules match
+	// only their connections, and a scoped lane with no domains or IPs takes all of
+	// their traffic. Empty means everyone. A group with no members (or one deleted
+	// since) adds nobody — a scoped lane never widens to everyone.
+	Groups []int64 `json:"groups,omitempty"`
+}
+
+// MaxLaneGroups caps the groups one lane may be scoped to.
+const MaxLaneGroups = 32
+
+// Scoped reports whether the lane applies only to members of some groups.
+func (l EgressLane) Scoped() bool { return len(l.Groups) > 0 }
+
+// TakesAll reports whether the lane names no destinations: scoped, it takes all of its
+// members' traffic at its place in the order.
+func (l EgressLane) TakesAll() bool {
+	for _, e := range l.Domains {
+		if strings.TrimSpace(e) != "" {
+			return false
+		}
+	}
+	for _, e := range l.IPs {
+		if strings.TrimSpace(e) != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // CascadeExit is one server a cascade lane leaves through, and the lane of that server
@@ -2431,6 +2498,14 @@ func (rc *RoutingConfig) ValidateLanes() error {
 		if strings.TrimSpace(l.Name) == "" {
 			return fieldErr("err.laneNoName", "у полосы «{{id}}» не задано название", map[string]any{"id": l.ID})
 		}
+		if len(l.Groups) > MaxLaneGroups {
+			return fieldErr("err.laneTooManyGroups", "у полосы «{{id}}» слишком много групп: максимум {{max}}", map[string]any{"id": l.ID, "max": MaxLaneGroups})
+		}
+		for _, g := range l.Groups {
+			if g <= 0 {
+				return fieldErr("err.laneBadGroup", "у полосы «{{id}}» неверная группа", map[string]any{"id": l.ID})
+			}
+		}
 		for _, e := range l.Via {
 			switch e.BridgeOr() {
 			case BridgeReality, BridgeVision, BridgeHysteria:
@@ -2540,3 +2615,11 @@ const (
 // enough sessions can do it by chance. internal/mieru serves UDP; the panel does not
 // offer it until that is fixed upstream. The stored value is kept for then.
 func MieruTransportOr(string) string { return MieruTCP }
+
+// MinXHTTPPathLen is the shortest VLESS-XHTTP-TLS path the panel makes (auth.RandomXHTTPPath
+// gives 16 characters after the slash).
+const MinXHTTPPathLen = 16
+
+// XHTTPOn reports whether the VLESS-XHTTP-TLS lane runs: switched on, with a path. The
+// path is the lane's address behind the decoy, so without one there is nothing to route.
+func (s *Settings) XHTTPOn() bool { return s.XHTTPEnabled && s.XHTTPPath != "" }
